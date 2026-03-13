@@ -3,6 +3,24 @@
 --- See https://luals.github.io/wiki/annotations/
 
 ------------------------------------------------------------------------
+-- Zephyr SDK specific types
+------------------------------------------------------------------------
+
+---@class ZephyrSdkRelease
+---@field tag_name string Release tag (e.g. "v0.17.0")
+---@field prerelease boolean Whether this is a pre-release
+---@field assets ZephyrSdkAsset[] Release assets
+
+---@class ZephyrSdkAsset
+---@field name string Asset filename
+---@field browser_download_url string Download URL
+
+---@class ZephyrSdkAssetResult
+---@field version string Version string (e.g. "0.17.0")
+---@field url string Download URL
+---@field name string Asset filename
+
+------------------------------------------------------------------------
 -- Globals
 ------------------------------------------------------------------------
 

@@ -1,69 +1,40 @@
---- Performs additional setup after installation
+--- Performs setup after Zephyr SDK installation.
+--- Downloads the arm-zephyr-eabi toolchain and hosttools by running
+--- the SDK's setup.sh script, which handles platform-specific logic.
+---
 --- Documentation: https://mise.jdx.dev/tool-plugin-development.html#postinstall-hook
---- @param ctx {rootPath: string, runtimeVersion: string, sdkInfo: table} Context
+--- @param ctx PostInstallCtx
 function PLUGIN:PostInstall(ctx)
+    local file = require("file")
+    local log = require("log")
+    local cmd = require("cmd")
+    local strings = require("strings")
+    local zephyr_sdk = require("zephyr_sdk")
     local sdkInfo = ctx.sdkInfo[PLUGIN.name]
     local path = sdkInfo.path
-    -- local version = sdkInfo.version
+    local version = sdkInfo.version
 
-    -- Example 1: Single binary file (most common)
-    -- The file is downloaded directly, move it to bin/ and make executable
-    os.execute("mkdir -p " .. path .. "/bin")
-
-    local srcFile = path .. "/" .. PLUGIN.name
-    local destFile = path .. "/bin/" .. PLUGIN.name
-
-    -- Move and make executable
-    local result = os.execute("mv " .. srcFile .. " " .. destFile .. " && chmod +x " .. destFile)
-    if result ~= 0 then
-        error("Failed to install " .. PLUGIN.name .. " binary")
+    -- ── Normalise SDK root ────────────────────────────────────────────
+    -- The minimal SDK tar may extract with a top-level zephyr-sdk-<ver>/
+    -- directory. Flatten it so the SDK root is always `path`.
+    if not file.exists(file.join_path(path, "sdk_version")) then
+        local subdir = file.join_path(path, "zephyr-sdk-" .. version)
+        if not file.exists(file.join_path(subdir, "sdk_version")) then
+            error("Invalid Zephyr SDK: sdk_version not found in " .. path .. " or " .. subdir)
+        end
+        log.debug("Flattening SDK subdirectory:", subdir, "→", path)
+        local ok, err = pcall(
+            cmd.exec,
+            "mv " .. subdir .. "/* " .. subdir .. "/.??* " .. path .. "/ 2>/dev/null; rm -rf " .. subdir
+        )
+        if not ok then
+            error("Failed to flatten SDK directory: " .. tostring(err))
+        end
     end
 
-    -- Verify installation works
-    local testResult = os.execute(destFile .. " --version > /dev/null 2>&1")
-    if testResult ~= 0 then
-        error(PLUGIN.name .. " installation appears to be broken")
-    end
+    local sdk_version = strings.trim_space(file.read(file.join_path(path, "sdk_version")))
+    log.info("Zephyr SDK version:", sdk_version)
 
-    -- Example 2: Archive already extracted by mise
-    -- If pre_install returns a .tar.gz or .zip, mise extracts it automatically
-    -- You might just need to move files around:
-    --[[
-    os.execute("mkdir -p " .. path .. "/bin")
-    os.execute("mv " .. path .. "/<TOOL>-*/bin/* " .. path .. "/bin/")
-    os.execute("chmod +x " .. path .. "/bin/*")
-    --]]
-
-    -- Example 3: Multiple binaries
-    --[[
-    os.execute("mkdir -p " .. path .. "/bin")
-    local binaries = {"tool1", "tool2", "tool3"}
-    for _, binary in ipairs(binaries) do
-        os.execute("mv " .. path .. "/" .. binary .. " " .. path .. "/bin/")
-        os.execute("chmod +x " .. path .. "/bin/" .. binary)
-    end
-    --]]
-
-    -- Example 4: No action needed
-    -- If the archive already has the correct structure (bin/ directory),
-    -- you might not need to do anything:
-    --[[
-    -- Archive already contains bin/<TOOL>, just verify it works
-    local testResult = os.execute(path .. "/bin/<TOOL> --version > /dev/null 2>&1")
-    if testResult ~= 0 then
-        error("<TOOL> installation appears to be broken")
-    end
-    --]]
-
-    -- Example 5: Platform-specific setup
-    --[[
-    -- RUNTIME object is provided by mise/vfox
-    if RUNTIME.osType ~= "Windows" then
-        -- Unix-like systems: make binaries executable
-        os.execute("chmod +x " .. path .. "/bin/*")
-    else
-        -- Windows-specific setup if needed
-        -- e.g., adding .exe extension or handling batch files
-    end
-    --]]
+    -- ── Install toolchains and hosttools via setup.sh ─────────────────
+    zephyr_sdk.install_from_setup_sh(path)
 end

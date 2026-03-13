@@ -11,7 +11,7 @@ stylua = "latest"
 
 [tasks.format]
 description = "Format Lua scripts"
-run = "stylua metadata.lua hooks/"
+run = "stylua metadata.lua hooks/ lib/"
 
 [tasks.lint]
 description = "Lint Lua scripts and GitHub Actions using hk"
@@ -21,6 +21,26 @@ run = "hk check"
 description = "Fix linting issues"
 run = "hk fix"
 
+[tasks.install_plugin]
+run = '''
+mise plugin link --force zephyr-sdk .
+mise cache clear
+mise --debug install zephyr-sdk
+'''
+
+[tasks.use_plugin]
+usage = '''
+arg "<sdk_version>" {
+    help "Zephyr SDK Version"
+    default "0.17.4"
+}
+'''
+run = '''
+SDK_VERSION="${usage_sdk_version:?}"
+mise_toolname="zephyr-sdk@${SDK_VERSION}"
+mise use "${mise_toolname?}"
+'''
+
 [tasks.ci]
 description = "Run all CI checks"
-depends = ["lint", "test"]
+depends = ["lint", "smoke-test", "integration-test"]

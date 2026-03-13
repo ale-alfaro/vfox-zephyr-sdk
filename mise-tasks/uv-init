@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+#MISE description="Initialize uv managed python environment... the right way"
+#MISE dir="{{cwd}}"
+#MISE tools={uv = "latest"}
+#USAGE flag "-p --python-version [python_version]" {
+#USAGE  help "Python version"
+#USAGE  default "3.12"
+#USAGE  env "MISE_UV_PYTHON"
+#USAGE }
+#USAGE flag "-r --requirements [requirements]" {
+#USAGE  help "requirements.txt file"
+#USAGE }
+
+PYTHON_VERSION="${usage_python_version?}"
+uv init --python "$PYTHON_VERSION" --pin-python --bare --no-package
+uv sync
+mise use uv
+PYTHONPATH="$(which python)"
+PYVER="$(mise exec -- python --version | awk '{print $2}')"
+if [[ -f "${usage_requirements:-}" ]]; then
+    uv add -r "$usage_requirements"
+    uv sync
+fi
+echo "PYTHONPATH=$PYTHONPATH"
+echo "PYVER=$PYVER"
+echo "PACKAGES: "
+uv tree
