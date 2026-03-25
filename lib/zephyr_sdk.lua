@@ -8,7 +8,7 @@ local M = {}
 local GITHUB_REPO = "zephyrproject-rtos/sdk-ng"
 local RELEASES_URL = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases"
 local MIN_VERSION = "0.16.0"
-
+local BREAKING_SDK_VERSION = "1.0.0"
 function M.get_platform()
     local os_map = { linux = "linux", darwin = "macos" }
     local arch_map = { amd64 = "x86_64", arm64 = "aarch64", x86_64 = "x86_64", aarch64 = "aarch64" }
@@ -55,7 +55,7 @@ function M.fetch_releases()
         end
     end
 
-    log.info("Found", #releases, "releases (>= " .. MIN_VERSION .. ")")
+    log.info(string.format("Found %x releases (>= %s)", #releases, MIN_VERSION))
     return releases
 end
 
@@ -94,6 +94,7 @@ end
 function M.find_minimal_sdk(version)
     local os_name, arch = M.get_platform()
     local platform = os_name .. "-" .. arch
+
     local suffix = "_" .. platform .. "_minimal.tar.xz"
     local release = M.fetch_release(version)
 
@@ -131,9 +132,11 @@ end
 --- The minimal SDK ships with setup.sh which uses wget to download and
 --- extract individual toolchain archives from GitHub releases.
 ---@param sdk_path string Path to the SDK root (contains setup.sh)
-function M.install_from_setup_sh(sdk_path)
+---@param version string SDK version
+function M.install_from_setup_sh(sdk_path, version)
     local file = require("file")
     local cmd = require("cmd")
+    local semver = require("semver")
 
     local installer = file.join_path(sdk_path, "setup.sh")
     if not file.exists(installer) then
@@ -153,6 +156,17 @@ function M.install_from_setup_sh(sdk_path)
         error("setup.sh -t arm-zephyr-eabi failed: " .. tostring(err))
     end
 
+    if semver.compare(version, BREAKING_SDK_VERSION) >= 0 then
+        log.info(
+            string.format(
+                "SDK version is equal or greater that the breaking change version (%s) : %s",
+                BREAKING_SDK_VERSION,
+                version
+            )
+        )
+        sdk_path = file.join_path(sdk_path, "gnu")
+        log.info("Appended 'gnu' to sdk_path ", sdk_path)
+    end
     local arm_tc = file.join_path(sdk_path, "arm-zephyr-eabi")
     if not file.exists(arm_tc) then
         error("arm-zephyr-eabi directory not found after setup.sh")

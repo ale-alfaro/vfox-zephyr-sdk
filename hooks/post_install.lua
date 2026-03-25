@@ -36,5 +36,5 @@ function PLUGIN:PostInstall(ctx)
     log.info("Zephyr SDK version:", sdk_version)
 
     -- ── Install toolchains and hosttools via setup.sh ─────────────────
-    zephyr_sdk.install_from_setup_sh(path)
+    zephyr_sdk.install_from_setup_sh(path, sdk_version)
 end
