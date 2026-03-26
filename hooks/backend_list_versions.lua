@@ -1,5 +1,5 @@
 --- Returns a list of available Zephyr SDK versions
---- Documentation: https://mise.jdx.dev/tool-plugin-development.html#available-hook
+--- Documentation: https://mise.jdx.dev/backend-plugin-development.html#backendlistversions
 
 ---@class ZephyrSdkReleaseCache
 ---@field releases ZephyrSdkRelease[]
@@ -22,21 +22,19 @@ local function get_releases()
     return releases
 end
 
---- @param ctx AvailableCtx
---- @return AvailableVersion[]
-function PLUGIN:Available(ctx)
+--- @param ctx BackendListVersionsCtx
+--- @return BackendListVersionsResult
+function PLUGIN:BackendListVersions(ctx)
     local releases = get_releases()
     local semver = require("semver")
-    local result = {}
+    local versions = {}
 
     for _, release in ipairs(releases) do
         if release.tag_name then
             local version = release.tag_name:gsub("^v", "")
-            table.insert(result, {
-                version = version,
-            })
+            table.insert(versions, version)
         end
     end
 
-    return semver.sort_by(result, "version")
+    return { versions = semver.sort(versions) }
 end
