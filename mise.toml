@@ -8,6 +8,7 @@ lua = "5.4"
 lua-language-server = "latest"
 pkl = "latest"
 stylua = "latest"
+"zephyr-sdk:arm-zephyr-eabi-gcc" = {version = "1.0.0"}
 
 [tasks.format]
 description = "Format Lua scripts"
@@ -25,7 +26,7 @@ run = "hk fix"
 run = '''
 mise plugin link --force zephyr-sdk .
 mise cache clear
-mise --debug install zephyr-sdk
+mise --debug install zephyr-sdk:zephyr-sdk
 '''
 
 [tasks.use_plugin]
@@ -37,10 +38,31 @@ arg "<sdk_version>" {
 '''
 run = '''
 SDK_VERSION="${usage_sdk_version:?}"
-mise_toolname="zephyr-sdk@${SDK_VERSION}"
+mise_toolname="zephyr-sdk:zephyr-sdk@${SDK_VERSION}"
 mise use "${mise_toolname?}"
 '''
 
-[tasks.ci]
-description = "Run all CI checks"
-depends = ["lint", "smoke-test", "integration-test"]
+[tasks.test]
+description = "Run all CI checks: lint → smoke-test → integration-test"
+depends = ["lint", "format"]
+usage = '''
+arg "<sdk_version>" help="Zephyr SDK Version" {
+    default "0.17.4"
+}
+'''
+run = '''
+WORKSPACE=$(mktemp -d)
+ZEPHYR_SDK_TEST_VERSION="${usage_sdk_version:?}" mise run integration-test ${WORKSPACE?}
+'''
+# run = [
+#   { task = "smoke-test", args = ["{{vars.workspace}}","{{usage.sdk_version}}"] },
+# ]
+
+# [tasks.ci_test]
+# description = "Run all CI checks: lint → smoke-test → integration-test"
+# env={  WORKSPACE="{{ exec(command='mktemp -d', cache_key='temp_workspace') | trim }}" }
+# run = ["quick-test","integration-test"]
+#
+# [tasks.ci]
+# description = "Run all CI checks: lint → smoke-test → integration-test"
+# depends = ["integration-test"]

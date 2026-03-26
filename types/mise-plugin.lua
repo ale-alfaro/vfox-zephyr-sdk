@@ -1,10 +1,21 @@
---- LuaCATS type definitions for mise vfox plugins
+--- LuaCATS type definitions for mise backend plugins
 --- These annotations provide IDE support via lua-language-server.
 --- See https://luals.github.io/wiki/annotations/
 
 ------------------------------------------------------------------------
 -- Zephyr SDK specific types
 ------------------------------------------------------------------------
+
+---@class ZephyrSdkReleaseCache
+---@field releases? ZephyrSdkRelease[]
+---@field timestamp? number
+
+---@class PreInstallResult
+---@field version string Version string
+---@field url string Download URL
+---@field sha256? string Optional SHA256 checksum
+---@field note? string Optional note
+---@field addition? table[] Optional additional components
 
 ---@class ZephyrSdkRelease
 ---@field tag_name string Release tag (e.g. "v0.17.0")
@@ -19,7 +30,22 @@
 ---@field version string Version string (e.g. "0.17.0")
 ---@field url string Download URL
 ---@field name string Asset filename
-
+---
+---@alias ZephyrSdkToolchainType
+---| '"ZEPHYR"' # Pre release v1.0.0 this is the only choice aside from host tools
+---| '"GNU"'    # Post-release v1.0.0 this is the default
+---| '"LLVM"'   # Second toolchain type
+---| '"HOST"'   # Not a toolchain but can be installed as a tool standalone
+---
+---@class ZephyrSdkToolchainInfo
+---@field supported_versions string[]|fun(version: string):boolean
+---@field tool_install_cmd_mapping string|table<string,string>|fun(tool:string): string
+---@field supported_tools string[]
+---@field additional_prefix string? Path where the tool should be installed
+---
+---@class ZephyrSdkInfo
+---@field version string Version to install
+---@field installDir string Path where the root of toolchain should be installed
 ------------------------------------------------------------------------
 -- Globals
 ------------------------------------------------------------------------
@@ -27,83 +53,42 @@
 ---@class Runtime
 ---@field osType string Operating system type (e.g. "linux", "darwin", "windows")
 ---@field archType string Architecture type (e.g. "amd64", "arm64")
+---@field envType? string libc environment type ("gnu" on glibc Linux, "musl" on musl Linux, nil otherwise)
 ---@field version string Runtime version
 ---@field pluginDirPath string Path to the plugin directory
 RUNTIME = {}
-
---- @deprecated Use RUNTIME.osType instead
----@type string
-OS_TYPE = ""
-
---- @deprecated Use RUNTIME.archType instead
----@type string
-ARCH_TYPE = ""
 
 ------------------------------------------------------------------------
 -- PLUGIN table & hook method signatures
 ------------------------------------------------------------------------
 
----@class AvailableVersion
----@field version string Version string
----@field note? string Optional note about the version
----@field rolling? boolean If true, this is a rolling release (e.g. "nightly")
----@field checksum? string Checksum for detecting changes in rolling releases
-
----@class AvailableCtx
----@field args string[] Command-line arguments
-
----@class PreInstallResult
----@field version string Version string
----@field url? string Download URL
----@field note? string Optional note
----@field sha256? string SHA-256 checksum
----@field md5? string MD5 checksum
----@field sha1? string SHA-1 checksum
----@field sha512? string SHA-512 checksum
----@field attestation? PreInstallAttestation Optional attestation parameters
-
----@class PreInstallAttestation
----@field github_owner? string GitHub repository owner
----@field github_repo? string GitHub repository name
----@field github_signer_workflow? string GitHub Actions signer workflow
----@field cosign_sig_or_bundle_path? string Path to cosign signature or bundle
----@field cosign_public_key_path? string Path to cosign public key
----@field slsa_provenance_path? string Path to SLSA provenance
----@field slsa_min_level? integer Minimum SLSA level
-
----@class PreInstallCtx
----@field args string[] Command-line arguments
----@field version string Requested version
-
----@class PostInstallCtx
----@field rootPath string Installation root path
----@field runtimeVersion string Runtime version
----@field sdkInfo table<string, SdkInfo> SDK info for installed versions
-
----@class SdkInfo
----@field path string Installation path
----@field version string Installed version
----@field note? string Optional note
-
 ---@class EnvKey
 ---@field key string Environment variable name
 ---@field value string Environment variable value
 
----@class EnvKeysCtx
+---@class BackendListVersionsCtx
+---@field tool string Tool name
+
+---@class BackendListVersionsResult
+---@field versions string[] List of available versions in ascending semver order
+
+---@class BackendInstallCtx
+---@field tool string Tool name
+---@field version string Version to install
+---@field install_path string Path where the tool should be installed
+---@field download_path string Temporary download directory
+---@field options table Custom options from mise.toml
+
+---@class BackendInstallResult
+
+---@class BackendExecEnvCtx
+---@field tool string Tool name
 ---@field version string Installed version
----@field path string Installation path
----@field sdkInfo table<string, SdkInfo> SDK info for installed versions
----@field main SdkInfo Main SDK info
----@field options table Plugin options from mise.toml
+---@field install_path string Installation path
+---@field options table Custom options from mise.toml
 
----@class ParseLegacyFileCtx
----@field args string[] Command-line arguments
----@field filename string Basename of the legacy file
----@field filepath string Full path to the legacy file
----@field getInstalledVersions fun(): string[] Returns list of installed versions
-
----@class ParseLegacyFileResult
----@field version? string Parsed version string
+---@class BackendExecEnvResult
+---@field env_vars EnvKey[] Environment variables to set
 
 ---@class MiseEnvCtx
 ---@field options table Plugin options from mise.toml
@@ -116,39 +101,13 @@ ARCH_TYPE = ""
 ---@class MisePathCtx
 ---@field options table Plugin options from mise.toml
 
----@class BackendListVersionsCtx
----@field tool string Tool name
-
----@class BackendListVersionsResult
----@field versions string[] List of available versions
-
----@class BackendInstallCtx
----@field tool string Tool name
----@field version string Version to install
----@field install_path string Path where the tool should be installed
-
----@class BackendInstallResult
-
----@class BackendExecEnvCtx
----@field tool string Tool name
----@field version string Installed version
----@field install_path string Installation path
-
----@class BackendExecEnvResult
----@field env_vars EnvKey[] Environment variables to set
-
 ---@class Plugin
 ---@field name string Plugin name
----@field Available? fun(self: Plugin, ctx: AvailableCtx): AvailableVersion[]
----@field PreInstall? fun(self: Plugin, ctx: PreInstallCtx): PreInstallResult
----@field PostInstall? fun(self: Plugin, ctx: PostInstallCtx)
----@field EnvKeys? fun(self: Plugin, ctx: EnvKeysCtx): EnvKey[]
----@field ParseLegacyFile? fun(self: Plugin, ctx: ParseLegacyFileCtx): ParseLegacyFileResult
----@field MiseEnv? fun(self: Plugin, ctx: MiseEnvCtx): MiseEnvResult|EnvKey[]
----@field MisePath? fun(self: Plugin, ctx: MisePathCtx): string[]
 ---@field BackendListVersions? fun(self: Plugin, ctx: BackendListVersionsCtx): BackendListVersionsResult
 ---@field BackendInstall? fun(self: Plugin, ctx: BackendInstallCtx): BackendInstallResult
 ---@field BackendExecEnv? fun(self: Plugin, ctx: BackendExecEnvCtx): BackendExecEnvResult
+---@field MiseEnv? fun(self: Plugin, ctx: MiseEnvCtx): MiseEnvResult|EnvKey[]
+---@field MisePath? fun(self: Plugin, ctx: MisePathCtx): string[]
 PLUGIN = {}
 
 ------------------------------------------------------------------------
@@ -167,9 +126,12 @@ PLUGIN = {}
 ---@field body string Response body (only for get, not head)
 
 ---@class http
----@field get fun(opts: HttpRequestOpts): HttpResponse Send a GET request
----@field head fun(opts: HttpRequestOpts): HttpResponse Send a HEAD request (no body)
----@field download_file fun(opts: HttpRequestOpts, path: string) Download a file to disk
+---@field get fun(opts: HttpRequestOpts): HttpResponse, string? Send a GET request
+---@field head fun(opts: HttpRequestOpts): HttpResponse, string? Send a HEAD request (no body)
+---@field download_file fun(opts: HttpRequestOpts, path: string): string? Download a file to disk
+---@field try_get fun(opts: HttpRequestOpts): HttpResponse?, string? Non-raising GET request
+---@field try_head fun(opts: HttpRequestOpts): HttpResponse?, string? Non-raising HEAD request
+---@field try_download_file fun(opts: HttpRequestOpts, path: string): boolean?, string? Non-raising download
 local http = {}
 
 -- json module --------------------------------------------------------
@@ -209,7 +171,7 @@ local env = {}
 -- archiver module ----------------------------------------------------
 
 ---@class archiver
----@field decompress fun(archive: string, dest: string) Decompress an archive (.zip, .tar.gz, .tar.xz, .tar.bz2)
+---@field decompress fun(archive: string, dest: string): string? Decompress an archive (.zip, .tar.gz, .tar.xz, .tar.bz2)
 local archiver = {}
 
 -- semver module ------------------------------------------------------
