@@ -19,13 +19,14 @@ function PLUGIN:BackendInstall(ctx)
     local download_path = ctx.download_path
 
     -- ── Download minimal SDK ────────────────────────────────────────────
-    local asset = zephyr_sdk.find_minimal_sdk(version)
-    local archive_path = file.join_path(download_path, asset.name)
+    local url = zephyr_sdk.get_download_url({ version = version })
+    local archive_name = url:match("([^/]+)$")
+    local archive_path = file.join_path(download_path, archive_name)
 
-    log.info("Downloading minimal SDK:", asset.url)
-    local err = http.download_file({ url = asset.url }, archive_path)
+    log.info("Downloading minimal SDK:", url)
+    local err = http.download_file({ url = url }, archive_path)
     if err ~= nil then
-        error("Download failed (" .. asset.url .. "): " .. err)
+        error("Download failed (" .. url .. "): " .. err)
     end
 
     -- ── Extract archive ─────────────────────────────────────────────────
@@ -59,7 +60,28 @@ function PLUGIN:BackendInstall(ctx)
     log.info("Zephyr SDK version:", sdk_version)
 
     -- ── Install toolchains and hosttools via setup.sh ───────────────────
-    zephyr_sdk.install_from_setup_sh(install_path, sdk_version)
+    local setup_sh = file.join_path(install_path, "setup.sh")
+    if not file.exists(setup_sh) then
+        error("setup.sh not found in " .. install_path)
+    end
+    cmd.exec("chmod +x " .. setup_sh)
+
+    local toolchains = zephyr_sdk.get_toolchains_to_install()
+    for _, tc in ipairs(toolchains) do
+        if tc == "-h" then
+            log.info("Installing host tools via setup.sh...")
+            local ok = os.execute("bash " .. setup_sh .. " -h")
+            if not ok then
+                error("setup.sh -h failed")
+            end
+        else
+            log.info("Installing " .. tc .. " toolchain via setup.sh...")
+            local ok = os.execute("bash " .. setup_sh .. " -t " .. tc)
+            if not ok then
+                error("setup.sh -t " .. tc .. " failed")
+            end
+        end
+    end
 
     return {}
 end

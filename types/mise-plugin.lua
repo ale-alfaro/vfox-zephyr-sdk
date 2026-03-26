@@ -6,6 +6,17 @@
 -- Zephyr SDK specific types
 ------------------------------------------------------------------------
 
+---@class ZephyrSdkReleaseCache
+---@field releases? ZephyrSdkRelease[]
+---@field timestamp? number
+
+---@class PreInstallResult
+---@field version string Version string
+---@field url string Download URL
+---@field sha256? string Optional SHA256 checksum
+---@field note? string Optional note
+---@field addition? table[] Optional additional components
+
 ---@class ZephyrSdkRelease
 ---@field tag_name string Release tag (e.g. "v0.17.0")
 ---@field prerelease boolean Whether this is a pre-release
@@ -19,7 +30,22 @@
 ---@field version string Version string (e.g. "0.17.0")
 ---@field url string Download URL
 ---@field name string Asset filename
-
+---
+---@alias ZephyrSdkToolchainType
+---| '"ZEPHYR"' # Pre release v1.0.0 this is the only choice aside from host tools
+---| '"GNU"'    # Post-release v1.0.0 this is the default
+---| '"LLVM"'   # Second toolchain type
+---| '"HOST"'   # Not a toolchain but can be installed as a tool standalone
+---
+---@class ZephyrSdkToolchainInfo
+---@field supported_versions string[]|fun(version: string):boolean
+---@field tool_install_cmd_mapping string|table<string,string>|fun(tool:string): string
+---@field supported_tools string[]
+---@field additional_prefix string? Path where the tool should be installed
+---
+---@class ZephyrSdkInfo
+---@field version string Version to install
+---@field installDir string Path where the root of toolchain should be installed
 ------------------------------------------------------------------------
 -- Globals
 ------------------------------------------------------------------------

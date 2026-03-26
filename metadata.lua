@@ -6,6 +6,5 @@ PLUGIN = { -- luacheck: ignore
     name = "zephyr-sdk",
     version = "1.0.0",
     description = "A mise backend plugin for the Zephyr SDK (arm-zephyr-eabi toolchain)",
-    author = "sibel",
-    minRuntimeVersion = "0.2.0",
+    author = "ale-alfaro",
 }

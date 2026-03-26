@@ -6,8 +6,11 @@
 function PLUGIN:BackendExecEnv(ctx)
     local file = require("file")
     local log = require("log")
-    local install_path = ctx.install_path
+    local semver = require("semver")
+    local zephyr_sdk = require("zephyr_sdk")
 
+    local install_path = ctx.install_path
+    local version = ctx.version
     log.debug("Setting up Zephyr SDK environment for", install_path)
 
     local env_vars = {
@@ -21,26 +24,20 @@ function PLUGIN:BackendExecEnv(ctx)
         },
     }
 
-    -- Add toolchain bin directories that exist.
-    -- SDK >= 1.0.0 places toolchains under a `gnu/` subdirectory.
-    local arm_bin = file.join_path(install_path, "arm-zephyr-eabi", "bin")
-    local arm_bin_gnu = file.join_path(install_path, "gnu", "arm-zephyr-eabi", "bin")
-    if file.exists(arm_bin) then
-        table.insert(env_vars, { key = "PATH", value = arm_bin })
-        log.debug("PATH +=", arm_bin)
-    elseif file.exists(arm_bin_gnu) then
-        table.insert(env_vars, { key = "PATH", value = arm_bin_gnu })
-        log.debug("PATH +=", arm_bin_gnu)
+    -- SDK >= 1.0.0 places toolchains under a gnu/ subdirectory
+    local tc_root = install_path
+    if semver.compare(version, zephyr_sdk.BREAKING_SDK_VERSION) >= 0 then
+        tc_root = file.join_path(install_path, "gnu")
     end
 
-    local x86_bin = file.join_path(install_path, "x86_64-zephyr-elf", "bin")
-    local x86_bin_gnu = file.join_path(install_path, "gnu", "x86_64-zephyr-elf", "bin")
-    if file.exists(x86_bin) then
-        table.insert(env_vars, { key = "PATH", value = x86_bin })
-        log.debug("PATH +=", x86_bin)
-    elseif file.exists(x86_bin_gnu) then
-        table.insert(env_vars, { key = "PATH", value = x86_bin_gnu })
-        log.debug("PATH +=", x86_bin_gnu)
+    -- Add toolchain bin directories that exist
+    local toolchain_names = { "arm-zephyr-eabi", "x86_64-zephyr-elf" }
+    for _, tc_name in ipairs(toolchain_names) do
+        local bin_path = file.join_path(tc_root, tc_name, "bin")
+        if file.exists(bin_path) then
+            table.insert(env_vars, { key = "PATH", value = bin_path })
+            log.debug("PATH +=", bin_path)
+        end
     end
 
     return { env_vars = env_vars }

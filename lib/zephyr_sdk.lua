@@ -4,24 +4,189 @@ M = {
     GITHUB_REPO = "sdk-ng",
     MIN_VERSION = "0.17.0",
     BREAKING_SDK_VERSION = "1.0.0",
+    ---@type table<ZephyrSdkToolchainType,ZephyrSdkToolchainInfo>
+    TOOLCHAIN_TYPES = {
+        ZEPHYR = {
+            tool_install_cmd_mapping = function(tool)
+                return " -t " .. tool
+            end,
+            supported_tools = { "arm-zephyr-eabi", "x86_64-zephyr-elf" },
+            supported_versions = function(version)
+                local semver = require("semver")
+                if semver.compare(version, "1.0.0") < 0 then
+                    return true
+                end
+                return false
+            end,
+        },
+        GNU = {
+            tool_install_cmd_mapping = function(tool)
+                return " -t " .. tool
+            end,
+            supported_tools = { "arm-zephyr-eabi", "x86_64-zephyr-elf" },
+            supported_versions = function(version)
+                local semver = require("semver")
+                if semver.compare(version, "1.0.0") >= 0 then
+                    return true
+                end
+                return false
+            end,
+            additional_prefix = "gnu",
+        },
+        LLVM = {
+            supported_tools = { "llvm" },
+            tool_install_cmd_mapping = " -t llvm",
+            supported_versions = function(version)
+                local semver = require("semver")
+                if semver.compare(version, "1.0.0") >= 0 then
+                    return true
+                end
+                return false
+            end,
+            additional_prefix = "llvm",
+        },
+        HOST = {
+            supported_tools = { "qemu" },
+            tool_install_cmd_mapping = " -h",
+            supported_versions = function(_version)
+                return true
+            end,
+        },
+    },
 }
+---@type table<string,table<string,ZephyrSdkToolchainType|nil>>
+M.toolchain_type_mapping = {
+    ["arm-zephyr-eabi|x86_64-zephyr-elf"] = {
+        ["1.0.0"] = "GNU",
+        ["default"] = "ZEPHYR",
+    },
+    ["llvm"] = {
+        ["1.0.0"] = "LLVM",
+        ["default"] = nil,
+    },
+    ["host"] = {
+        ["default"] = "HOST",
+    },
+}
+local function get_platform_archive()
+    local ext = RUNTIME.osType:lower() == "windows" and "7z" or "tar.xz"
+    return "minimal." .. ext
+end
+-- create a namespace
+---@class ZephyrSdkToolchain
+---@field sdkInfo ZephyrSdkInfo Path where the root of toolchain should be installed
+---@field toolchainInfo ZephyrSdkToolchainInfo Path where the tool should be installed
+---@field installerPath string Path where the tool should be installed
+---@field extract fun(self:ZephyrSdkToolchain):nil Path where the <TOOL>/bin directory is located
+---@field checkInstall fun(self:ZephyrSdkToolchain):nil Path where the <TOOL>/bin directory is located
+ZephyrSdkToolchain = {}
+-- create the prototype with default values
+ZephyrSdkToolchain.__index = ZephyrSdkToolchain
+--- Create new ZephyrSdkToolchain
+---@param ctx BackendInstallCtx|BackendExecEnvCtx
+---@return ZephyrSdkToolchain
+function ZephyrSdkToolchain.new(ctx)
+    local file = require("file")
+    local semver = require("semver")
+    local semver_mapping = M.toolchain_type_mapping[ctx.tool]
+    if not semver_mapping then
+        error("Could not find tool: " .. ctx.tool)
+    end
+    local tc_type = semver_mapping["default"]
+    for ver, tc in pairs(semver_mapping) do
+        if
+            ver ~= "default"
+            and string.match(ctx.version, "^[0-9]+%.[0-9]+%.[0-9]+$")
+            and semver.compare(ctx.version, ver) >= 0
+        then
+            tc_type = tc
+        end
+    end
+    local tcInfo = M.TOOLCHAIN_TYPES[tc_type]
+    if not tcInfo then
+        error("Could not find tool: " .. ctx.tool)
+    end
+    local newToolchain = setmetatable({
+        sdkInfo = {
+            version = ctx.version,
+            installDir = ctx.install_path,
+        },
+        toolchainInfo = tcInfo,
+        installerPath = file.join_path(ctx.install_path, "setup.sh"),
+    }, ZephyrSdkToolchain)
+    return newToolchain
+end
+---@param self ZephyrSdkToolchain
+---@return string
+function ZephyrSdkToolchain:getToolchainRoot()
+    local file = require("file")
+    local tcInfo = self.toolchainInfo
+    local tcRoot = file.join_path(self.sdkInfo.installDir, "zephyr-sdk-" .. self.sdkInfo.version)
+    return tcInfo.additional_prefix and file.join_path(tcRoot, tcInfo.additional_prefix) or tcRoot
+end
 
+--- Extracts an archive and raises on failure.
+function ZephyrSdkToolchain:extract()
+    local archiver = require("archiver")
+    local http = require("http")
+    -- Download the archive
+    local archive_path = self.sdkInfo.installDir .. "/" .. get_platform_archive()
+    local err = http.download_file({
+        url = M.get_download_url({ version = self.sdkInfo.version }),
+    }, archive_path)
+
+    if err ~= nil then
+        error("Download failed: " .. err)
+    end
+
+    -- Extract to installation directory
+    err = archiver.decompress(archive_path, self.sdkInfo.installDir)
+    if err ~= nil then
+        error("Extraction failed: " .. err)
+    end
+
+    -- Clean up archive
+    os.remove(archive_path)
+end
 --- https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v1.0.0/zephyr-sdk-1.0.0_linux-x86_64_minimal.tar.xz
 M.get_repo_url = function()
     return string.format("https://api.github.com/repos/%s/%s/releases", M.GITHUB_USER, M.GITHUB_REPO)
 end
-local function get_platform()
-    -- RUNTIME object is provided by mise/vfox
-    -- RUNTIME.osType: "Windows", "Linux", "Darwin"
-    -- RUNTIME.archType: "amd64", "386", "arm64", etc.
+---@return string[] versions
+M.fetch_releases = function()
+    local http = require("http")
+    local json = require("json")
+    local semver = require("semver")
+    local resp, err = http.get({
+        url = M.get_repo_url(),
+    })
 
+    if err ~= nil then
+        error("Failed to fetch versions: " .. err)
+    end
+    if resp.status_code ~= 200 then
+        error("GitHub API returned status " .. resp.status_code .. ": " .. resp.body)
+    end
+
+    local tags = json.decode(resp.body)
+    local releases = {}
+
+    -- Process tags/releases
+    for _, tag_info in ipairs(tags) do
+        local version = tag_info.tag_name:gsub("^v", "")
+        local is_not_official = version:match("-([%w%d]+)$")
+        local is_prerelease = tag_info.prerelease or is_not_official
+        local note = is_prerelease and "pre-release" or nil
+        if is_prerelease == nil and semver.compare(version, M.MIN_VERSION) >= 0 then
+            table.insert(releases, version)
+        end
+    end
+    return releases
+end
+
+local function get_platform()
     local os_name = RUNTIME.osType:lower()
     local arch = RUNTIME.archType
-
-    -- Map to your tool's platform naming convention
-    -- Adjust these mappings based on how your tool names its releases
-    -- https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/zephyr-sdk-0.17.0_linux-x86_64_minimal.tar.xz
-    -- https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v1.0.0/zephyr-sdk-1.0.0_linux-x86_64_minimal.tar.xz
 
     local platform_map = {
         ["darwin"] = {
@@ -43,10 +208,6 @@ local function get_platform()
 
     -- Default fallback
     return "linux-x86_64"
-end
-local function get_platform_archive()
-    local ext = RUNTIME.osType:lower() == "windows" and "7z" or "tar.xz"
-    return "minimal." .. ext
 end
 
 --- @param ctx {version: string, runtimeVersion: string} Context
@@ -86,37 +247,12 @@ function M.download(url, dest)
     end
 end
 
---- Extracts an archive and raises on failure.
-M.extract = function(sdkInfo)
-    local archiver = require("archiver")
-    local http = require("http")
-    -- Download the archive
-    local archive_path = sdkInfo.path .. "/" .. get_platform_archive()
-    local err = http.download_file({
-        url = M.get_download_url({ version = sdkInfo.version }),
-    }, archive_path)
-
-    if err ~= nil then
-        error("Download failed: " .. err)
-    end
-
-    -- Extract to installation directory
-    err = archiver.decompress(archive_path, sdkInfo.path)
-    if err ~= nil then
-        error("Extraction failed: " .. err)
-    end
-
-    -- Clean up archive
-    os.remove(archive_path)
-end
---- @param  sdkInfo SdkInfo: SdkInfo Context
-M.sdk_install_paths = function(sdkInfo)
-    local semver = require("semver")
+function ZephyrSdkToolchain:checkInstall()
     local log = require("log")
     local file = require("file")
-    local version = sdkInfo.version
+    local version = self.sdkInfo.version
     local strings = require("strings")
-    local sdk_path = file.join_path(sdkInfo.path, "zephyr-sdk-" .. version)
+    local sdk_path = file.join_path(self.sdkInfo.installDir, "zephyr-sdk-" .. version)
     local read_sdk_version = strings.trim_space(file.read(file.join_path(sdk_path, "sdk_version")))
     if read_sdk_version ~= version then
         error("SDK version requested " .. version .. " and the one installed " .. read_sdk_version .. " do not match")
@@ -126,19 +262,46 @@ M.sdk_install_paths = function(sdkInfo)
     if not file.exists(installer) then
         error("setup.sh not found in SDK Install path: " .. sdk_path)
     end
-    local paths = { sdk_path = sdk_path, tc_root = sdk_path, installer = file.join_path(sdk_path, "setup.sh") }
-    if semver.compare(version, M.BREAKING_SDK_VERSION) >= 0 then
-        log.info(
-            string.format(
-                "SDK version is equal or greater that the breaking change version (%s) : %s",
-                M.BREAKING_SDK_VERSION,
-                version
-            )
-        )
-        log.info("Appending 'gnu' to sdk_path ", sdk_path)
-        paths.tc_root = file.join_path(sdk_path, "gnu")
+end
+---@param tools string[] name of tools to install
+function ZephyrSdkToolchain:runInstallCmd(tools)
+    -- Make setup.sh executable
+    os.execute("chmod +x " .. self.installerPath)
+    local base_install_cmd = "bash " .. self.installerPath
+    local utils = require("utils")
+    local install_cmds = self.toolchainInfo.tool_install_cmd_mapping
+    local run_install_cmd = nil
+    if type(install_cmds) == "string" then
+        local cmd = base_install_cmd .. " " .. install_cmds
+        print("Running install cmd: ", cmd)
+        os.execute(cmd)
+        return
+    elseif type(install_cmds) == "table" then
+        run_install_cmd = function(tool)
+            local tool_cmd = install_cmds[tool]
+            if tool_cmd then
+                local cmd = base_install_cmd .. " " .. tool_cmd
+                print("Running install cmd: ", cmd)
+                os.execute(cmd)
+            end
+        end
+    elseif type(install_cmds) == "function" then
+        run_install_cmd = function(tool)
+            local tool_cmd = install_cmds(tool)
+            if tool_cmd then
+                local cmd = base_install_cmd .. " " .. tool_cmd
+                print("Running install cmd: ", cmd)
+                os.execute(cmd)
+            end
+        end
     end
-
-    return paths
+    if run_install_cmd ~= nil then
+        for _, tool in ipairs(tools) do
+            if utils.tbl_contains(self.toolchainInfo.supported_tools, tool) then
+                print("Installing ", tool, " via cmd setup.sh...")
+                run_install_cmd(tool)
+            end
+        end
+    end
 end
 return M
