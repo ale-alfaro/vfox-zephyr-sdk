@@ -2,6 +2,7 @@
 set -euo pipefail
 #MISE description="Integration test - build a Zephyr sample with the Zephyr SDK"
 #MISE dir="{{config_root}}"
+#MISE depends=["smoke-test"]
 #MISE env={WORKSPACE="{{ exec(command='mktemp -d', cache_key='temp_workspace') | trim }}"}
 #MISE tools="{ python = 3.13 , uv = latest, pipx:west = 1.5.0 , ninja = latest}"
 #USAGE arg "[sdk_version]" help="Zephyr SDK version to test with" default="0.17.0" env="ZEPHYR_SDK_TEST_VERSION"
@@ -20,9 +21,9 @@ SDK_VERSION="${usage_sdk_version:?}"
 # ── Install toolchain ──────────────────────────────────────────────
 mise plugins link --force zephyr-sdk "${MISE_CONFIG_ROOT:?}"
 mise cache clear
-mise ls-remote zephyr-sdk
-mise install "zephyr-sdk@${SDK_VERSION}"
-mise exec "zephyr-sdk@${SDK_VERSION}" -- arm-zephyr-eabi-gcc --version
+mise ls-remote zephyr-sdk:zephyr-sdk
+mise install "zephyr-sdk:zephyr-sdk@${SDK_VERSION}"
+mise exec "zephyr-sdk:zephyr-sdk@${SDK_VERSION}" -- arm-zephyr-eabi-gcc --version
 
 # ── Write minimal west manifest ────────────────────────────────────
 cat >"${APPDIR}/west.yml" <<YAML
@@ -49,10 +50,10 @@ mise exec pipx:west@1.5.0 -- west init -l .
 WEST_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/zephyr-sdk-plugin-test/west"
 mkdir -p "${WEST_CACHE}"
 mise exec pipx:west@1.5.0 -- west update --narrow --auto-cache "${WEST_CACHE}"
-mise use zephyr-sdk
+mise use zephyr-sdk:zephyr-sdk
 mise run "$MISE_ORIGINAL_CWD/mise-tasks/uv-init" -r "${WORKSPACE}/zephyr/scripts/requirements.txt"
 mise set ZEPHYR_BASE="$WORKSPACE/zephyr"
-mise x "zephyr-sdk@${SDK_VERSION}" -- west build -p -b native_sim -s "$WORKSPACE/zephyr/samples/hello_world" -d build
+mise x "zephyr-sdk:zephyr-sdk@${SDK_VERSION}" -- west build -p -b native_sim -s "$WORKSPACE/zephyr/samples/hello_world" -d build
 
 # ── Verify output ──────────────────────────────────────────────────
 if [[ -d build && -e build/zephyr/zephyr.exe ]]; then

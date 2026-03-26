@@ -1,6 +1,6 @@
 # mise-zephyr-sdk-plugin
 
-A [mise](https://mise.jdx.dev/) tool plugin for the [Zephyr SDK](https://github.com/zephyrproject-rtos/sdk-ng) (arm-zephyr-eabi toolchain).
+A [mise](https://mise.jdx.dev/) backend plugin for the [Zephyr SDK](https://github.com/zephyrproject-rtos/sdk-ng) (arm-zephyr-eabi toolchain).
 
 ## What it does
 
@@ -16,21 +16,24 @@ Sets `ZEPHYR_SDK_INSTALL_DIR`, `ZEPHYR_TOOLCHAIN_VARIANT=zephyr`, and adds toolc
 
 ```bash
 # Install the plugin
-mise plugin install zephyr-sdk https://github.com/sibel/mise-zephyr-sdk-plugin
+mise plugin install zephyr-sdk https://github.com/ale-alfaro/mise-zephyr-sdk-plugin
+
+# List available versions
+mise ls-remote zephyr-sdk:zephyr-sdk
 
 # Install a specific version
-mise install zephyr-sdk@0.17.0
+mise install zephyr-sdk:zephyr-sdk@0.17.0
 
 # Use in a project
-mise use zephyr-sdk@0.17.0
+mise use zephyr-sdk:zephyr-sdk@0.17.0
 ```
 
 ## Environment variables
 
 | Variable | Value |
 |---|---|
-| `PATH` | `<install>/arm-zephyr-eabi/bin` |
-| `PATH` | `<install>/hosttools/sysroots/<arch>-pokysdk-linux/usr/bin` (Linux only) |
+| `PATH` | `<install>/arm-zephyr-eabi/bin` (or `<install>/gnu/arm-zephyr-eabi/bin` for SDK >= 1.0.0) |
+| `PATH` | `<install>/x86_64-zephyr-elf/bin` (Linux only) |
 | `ZEPHYR_SDK_INSTALL_DIR` | `<install>` (SDK root with cmake/ and sdk_version) |
 | `ZEPHYR_TOOLCHAIN_VARIANT` | `zephyr` |
 
@@ -54,16 +57,15 @@ mise run ci         # Full CI suite
 ### Debugging
 
 ```bash
-MISE_DEBUG=1 mise install zephyr-sdk@0.17.0
+MISE_DEBUG=1 mise install zephyr-sdk:zephyr-sdk@0.17.0
 ```
 
 ## Files
 
 - `metadata.lua` - Plugin metadata
-- `hooks/available.lua` - Lists available versions from GitHub releases
-- `hooks/pre_install.lua` - Returns download URL for the minimal SDK
-- `hooks/post_install.lua` - Downloads arm-zephyr-eabi toolchain + hosttools, validates SDK structure
-- `hooks/env_keys.lua` - Configures PATH, ZEPHYR_SDK_INSTALL_DIR, ZEPHYR_TOOLCHAIN_VARIANT
+- `hooks/backend_list_versions.lua` - Lists available versions from GitHub releases
+- `hooks/backend_install.lua` - Downloads and installs the SDK (minimal SDK + toolchains via setup.sh)
+- `hooks/backend_exec_env.lua` - Configures PATH, ZEPHYR_SDK_INSTALL_DIR, ZEPHYR_TOOLCHAIN_VARIANT
 - `lib/zephyr_sdk.lua` - Shared library for GitHub API, platform detection, asset resolution
 - `mise-tasks/smoke-test` - Quick install and verify test
 - `mise-tasks/integration-test` - Full Zephyr build test

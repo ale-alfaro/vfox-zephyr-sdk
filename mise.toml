@@ -26,7 +26,7 @@ run = "hk fix"
 run = '''
 mise plugin link --force zephyr-sdk .
 mise cache clear
-mise --debug install zephyr-sdk
+mise --debug install zephyr-sdk:zephyr-sdk
 '''
 
 [tasks.use_plugin]
@@ -38,10 +38,10 @@ arg "<sdk_version>" {
 '''
 run = '''
 SDK_VERSION="${usage_sdk_version:?}"
-mise_toolname="zephyr-sdk@${SDK_VERSION}"
+mise_toolname="zephyr-sdk:zephyr-sdk@${SDK_VERSION}"
 mise use "${mise_toolname?}"
 '''
 
 [tasks.ci]
-description = "Run all CI checks"
-depends = ["lint", "smoke-test", "integration-test"]
+description = "Run all CI checks: lint → smoke-test → integration-test"
+depends = ["integration-test"]
