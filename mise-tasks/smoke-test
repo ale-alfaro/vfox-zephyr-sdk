@@ -1,22 +1,40 @@
 #!/usr/bin/env bash
 #MISE description="Run plugin tests - install and verify Zephyr SDK toolchain"
+#MISE dir="{{config_root}}"
 #USAGE arg "[sdk_version]" help="Zephyr SDK version to test with" default="0.17.4" env="ZEPHYR_SDK_TEST_VERSION"
 set -euo pipefail
 
-# Verify arm-zephyr-eabi-gcc is available via the toolchain
-output1=$(mise x "zephyr-sdk:zephyr-sdk@${usage_sdk_version?}" -- arm-zephyr-eabi-gcc --version 2>&1 || true)
+SDK_VERSION="${usage_sdk_version:?}"
+
+# ── Link and install plugin ──────────────────────────────────────────
+mise plugins link --force zephyr-sdk "${MISE_CONFIG_ROOT:?}"
+mise cache clear
+mise install "zephyr-sdk:zephyr-sdk@${SDK_VERSION}"
+
+# ── Verify arm-zephyr-eabi-gcc ───────────────────────────────────────
+echo "Testing arm-zephyr-eabi-gcc..."
+output1=$(mise x "zephyr-sdk:zephyr-sdk@${SDK_VERSION}" -- arm-zephyr-eabi-gcc --version 2>&1 || true)
 echo "arm-zephyr-eabi-gcc output: $output1"
 if echo "$output1" | grep -qi 'gcc'; then
-    echo "Arm Zephyr Toolchain Tests passed"
+    echo "PASS: Arm Zephyr Toolchain"
 else
-    echo "Test failed: arm-zephyr-eabi-gcc not found or not working"
+    echo "FAIL: arm-zephyr-eabi-gcc not found or not working"
     exit 1
 fi
-output2=$(mise x "zephyr-sdk:zephyr-sdk@${usage_sdk_version?}" -- x86_64-zephyr-elf-gcc --version 2>&1 || true)
+
+# ── Verify x86_64-zephyr-elf-gcc (Linux only) ───────────────────────
+echo "Testing x86_64-zephyr-elf-gcc..."
+output2=$(mise x "zephyr-sdk:zephyr-sdk@${SDK_VERSION}" -- x86_64-zephyr-elf-gcc --version 2>&1 || true)
 echo "x86_64-zephyr-elf-gcc output: $output2"
 if echo "$output2" | grep -qi 'gcc'; then
-    echo "Host Tools Tests passed"
+    echo "PASS: x86_64 Zephyr Toolchain"
 else
-    echo "Test failed: x86_64-zephyr-elf-gcc not found or not working"
-    exit 1
+    if [[ "$(uname -s)" == "Linux" ]]; then
+        echo "FAIL: x86_64-zephyr-elf-gcc not found or not working"
+        exit 1
+    else
+        echo "SKIP: x86_64-zephyr-elf-gcc (not required on $(uname -s))"
+    fi
 fi
+
+echo "All smoke tests passed!"
