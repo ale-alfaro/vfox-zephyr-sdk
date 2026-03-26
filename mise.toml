@@ -42,5 +42,5 @@ mise use "${mise_toolname?}"
 '''
 
 [tasks.ci]
-description = "Run all CI checks"
-depends = ["lint", "smoke-test", "integration-test"]
+description = "Run all CI checks: lint → smoke-test → integration-test"
+depends = ["integration-test"]

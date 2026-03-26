@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Run plugin tests - install and verify Zephyr SDK toolchain"
 #MISE dir="{{config_root}}"
+#MISE depends=["lint"]
 #USAGE arg "[sdk_version]" help="Zephyr SDK version to test with" default="0.17.4" env="ZEPHYR_SDK_TEST_VERSION"
 set -euo pipefail
 

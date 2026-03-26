@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
-      - run: mise run smoke-test
+      - run: mise run smoke-test --skip-deps
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -37,6 +37,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
-      - run: mise run integration-test
+      - run: mise run integration-test --skip-deps
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

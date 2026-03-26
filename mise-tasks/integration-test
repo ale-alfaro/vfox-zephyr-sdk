@@ -2,6 +2,7 @@
 set -euo pipefail
 #MISE description="Integration test - build a Zephyr sample with the Zephyr SDK"
 #MISE dir="{{config_root}}"
+#MISE depends=["smoke-test"]
 #MISE env={WORKSPACE="{{ exec(command='mktemp -d', cache_key='temp_workspace') | trim }}"}
 #MISE tools="{ python = 3.13 , uv = latest, pipx:west = 1.5.0 , ninja = latest}"
 #USAGE arg "[sdk_version]" help="Zephyr SDK version to test with" default="0.17.0" env="ZEPHYR_SDK_TEST_VERSION"
