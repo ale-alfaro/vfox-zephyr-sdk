@@ -39,6 +39,8 @@ OS_TYPE = ""
 ---@type string
 ARCH_TYPE = ""
 
+-- https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/zephyr-sdk-0.17.0_linux-x86_64_minimal.tar.xz
+-- https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v1.0.0/zephyr-sdk-1.0.0_linux-x86_64_minimal.tar.xz
 ------------------------------------------------------------------------
 -- PLUGIN table & hook method signatures
 ------------------------------------------------------------------------
