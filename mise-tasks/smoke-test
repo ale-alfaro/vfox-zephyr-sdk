@@ -4,6 +4,8 @@
 #USAGE arg "<version>" help="Backend version to test with" env="BACKEND_TEST_VERSION"
 #USAGE arg "<test_tools>" help="File with Backend tools to test with"
 set -euo pipefail
+SDK_VERSION="${usage_sdk_version:?}"
+TEST_TOOL="${usage_test_tool:?}"
 
 fail() {
   echo "⚠ FAIL: $*"

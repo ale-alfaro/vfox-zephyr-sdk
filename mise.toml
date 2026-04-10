@@ -21,33 +21,6 @@ run = "hk check"
 description = "Fix linting issues"
 run = "hk fix"
 
-[tasks.install_tool]
-description = "Install tool version"
-usage = '''
-arg "<tool>" help="Tool" {
-    default "minimal"
-}
-arg "<tool_version>" help="Tool Version" {
-    default "0.17.4"
-}
-'''
-run = '''
-mise install "zephyr-sdk-test:${usage_tool?}@${usage_tool_version?}"
-'''
-[tasks.uninstall_tool]
-description = "Install tool version"
-usage = '''
-arg "<tool>" help="Tool" {
-    default "minimal"
-}
-arg "<tool_version>" help="Tool Version" {
-    default "0.17.4"
-}
-'''
-run = '''
-mise uninstall "zephyr-sdk-test:${usage_tool?}@${usage_tool_version?}"
-'''
-
 [tasks.test]
 description = "Run lint → smoke-test"
 depends = ["lint", "format"]
@@ -71,15 +44,3 @@ run = '''
 WORKSPACE=$(mktemp -d)
 mise run integration-test "${WORKSPACE?}" "${usage_sdk_version?}"
 '''
-# run = [
-#   { task = "smoke-test", args = ["{{vars.workspace}}","{{usage.sdk_version}}"] },
-# ]
-
-# [tasks.ci_test]
-# description = "Run all CI checks: lint → smoke-test → integration-test"
-# env={  WORKSPACE="{{ exec(command='mktemp -d', cache_key='temp_workspace') | trim }}" }
-# run = ["quick-test","integration-test"]
-#
-# [tasks.ci]
-# description = "Run all CI checks: lint → smoke-test → integration-test"
-# depends = ["integration-test"]
