@@ -375,5 +375,155 @@ function Utils.is_callable(f)
     end
     return type(rawget(m, "__call")) == "function"
 end
+
+--- Checks if a table is empty.
+---
+---@see https://github.com/premake/premake-core/blob/master/src/base/table.lua
+---
+---@param t table Table to check
+---@return boolean `true` if `t` is empty
+function Utils.tbl_isempty(t)
+    Utils.validate("t", t, "table")
+    return next(t) == nil
+end
+
+--- We only merge empty tables or tables that are not list-like (indexed by consecutive integers
+--- starting from 1)
+local function can_merge(v)
+    return type(v) == "table" and (Utils.tbl_isempty(v) or not Utils.islist(v))
+end
+
+--- Recursive worker for tbl_extend
+--- @param behavior 'error'|'keep'|'force'|fun(key:any, prev_value:any?, value:any): any
+--- @param deep_extend boolean
+--- @param ... table<any,any>
+local function tbl_extend_rec(behavior, deep_extend, ...)
+    local ret = {} --- @type table<any,any>
+
+    for i = 1, select("#", ...) do
+        local tbl = select(i, ...) --[[@as table<any,any>]]
+        if tbl then
+            for k, v in pairs(tbl) do
+                if deep_extend and can_merge(v) and can_merge(ret[k]) then
+                    ret[k] = tbl_extend_rec(behavior, true, ret[k], v)
+                elseif type(behavior) == "function" then
+                    ret[k] = behavior(k, ret[k], v)
+                elseif behavior ~= "force" and ret[k] ~= nil then
+                    if behavior == "error" then
+                        error("key found in more than one map: " .. k)
+                    end -- Else behavior is "keep".
+                else
+                    ret[k] = v
+                end
+            end
+        end
+    end
+
+    return ret
+end
+
+--- @param behavior 'error'|'keep'|'force'|fun(key:any, prev_value:any?, value:any): any
+--- @param deep_extend boolean
+--- @param ... table<any,any>
+local function tbl_extend(behavior, deep_extend, ...)
+    if behavior ~= "error" and behavior ~= "keep" and behavior ~= "force" and type(behavior) ~= "function" then
+        error('invalid "behavior": ' .. tostring(behavior))
+    end
+
+    local nargs = select("#", ...)
+
+    if nargs < 2 then
+        error(("wrong number of arguments (given %d, expected at least 3)"):format(1 + nargs))
+    end
+
+    for i = 1, nargs do
+        Utils.validate("after the second argument", select(i, ...), "table")
+    end
+
+    return tbl_extend_rec(behavior, deep_extend, ...)
+end
+
+--- Merges two or more tables.
+---
+---
+---@param behavior 'error'|'keep'|'force'|fun(key:any, prev_value:any?, value:any): any Decides what to do if a key is found in more than one map:
+---      - "error": raise an error
+---      - "keep":  use value from the leftmost map
+---      - "force": use value from the rightmost map
+---      - If a function, it receives the current key, the previous value in the currently merged table (if present), the current value and should
+---        return the value for the given key in the merged table.
+---@param ... table Two or more tables
+---@return table : Merged table
+function Utils.tbl_extend(behavior, ...)
+    return tbl_extend(behavior, false, ...)
+end
+
+--- Merges recursively two or more tables.
+---
+--- Only values that are empty tables or tables that are not |lua-list|s (indexed by consecutive
+--- integers starting from 1) are merged recursively. This is useful for merging nested tables
+--- like default and user configurations where lists should be treated as literals (i.e., are
+--- overwritten instead of merged).
+---
+---
+---@generic T1: table
+---@generic T2: table
+---@param behavior 'error'|'keep'|'force'|fun(key:any, prev_value:any?, value:any): any Decides what to do if a key is found in more than one map:
+---      - "error": raise an error
+---      - "keep":  use value from the leftmost map
+---      - "force": use value from the rightmost map
+---      - If a function, it receives the current key, the previous value in the currently merged table (if present), the current value and should
+---        return the value for the given key in the merged table.
+---@param ... T2 Two or more tables
+---@return T1|T2 (table) Merged table
+function Utils.tbl_deep_extend(behavior, ...)
+    return tbl_extend(behavior, true, ...)
+end
+--- Checks if a table is a list (array-like, indexed by consecutive integers starting from 1).
+---@param t table
+---@return boolean
+function Utils.islist(t)
+    if type(t) ~= "table" then
+        return false
+    end
+    local count = 0
+    for _ in pairs(t) do
+        count = count + 1
+    end
+    for i = 1, count do
+        if t[i] == nil then
+            return false
+        end
+    end
+    return true
+end
+
+--- Sorted pairs iterator. Iterates over keys in sorted order.
+---@param t table
+---@return fun():any, any
+function Utils.spairs(t)
+    local keys = {}
+    for k in pairs(t) do
+        keys[#keys + 1] = k
+    end
+    table.sort(keys)
+    local i = 0
+    return function()
+        i = i + 1
+        local k = keys[i]
+        if k ~= nil then
+            return k, t[k]
+        end
+    end
+end
+
+--- Log a deprecation warning (no-op in plugin context, just prints warning).
+---@param old_name string
+---@param new_name string
+---@param _version string
+function Utils.deprecate(old_name, new_name, _version)
+    Utils.wrn(old_name .. " is deprecated, use " .. new_name)
+end
+
 --- Split a version string into numeric parts
 return Utils

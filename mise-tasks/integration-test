@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Integration test - build a Zephyr sample with the Zephyr SDK"
+#MISE hide=true
+#MISE env={MISE_VERBOSE=1}
 #USAGE arg "<dir>" help="Workspace directory"
 #USAGE arg "<version>" help="Zephyr SDK version to test with" env="BACKEND_TEST_VERSION"
 
@@ -20,6 +22,9 @@ pushd "${WORKSPACE}"
 APPDIR="${WORKSPACE?}/app"
 cleanup() {
   echo "Cleanup!"
+  mise uninstall "zephyr-sdk-test:west@${BACKEND_VERSION}" 2>/dev/null || true
+  mise uninstall "zephyr-sdk-test:arm-zephyr-eabi@${BACKEND_VERSION}" 2>/dev/null || true
+  mise uninstall "zephyr-sdk-test:minimal@${BACKEND_VERSION}" 2>/dev/null || true
   rm -rf "$WORKSPACE"
 }
 trap cleanup EXIT

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #MISE description="Run plugin tests - install and verify NCS toolchain"
+#MISE hide=true
+#MISE env={MISE_VERBOSE=1}
 #USAGE arg "<backend>" help="Backend to test" env="BACKEND_UNDER_TEST"
 #USAGE arg "<version>" help="Backend version to test with" env="BACKEND_TEST_VERSION"
 #USAGE arg "<test_tools>" help="File with Backend tools to test with"
 set -euo pipefail
-SDK_VERSION="${usage_sdk_version:?}"
-TEST_TOOL="${usage_test_tool:?}"
 
 fail() {
   echo "⚠ FAIL: $*"
@@ -32,6 +32,15 @@ for cmd in "${cmds[@]}"; do
   TEST_TOOLS[${cmd%%=*}]=${cmd#*=}
 done
 echo "BACKEND=${BACKEND}  BACKEND_VERSION=$BACKEND_VERSION  TEST_TOOLS=${!TEST_TOOLS[*]}"
+
+cleanup() {
+  echo "Cleaning up installed tools..."
+  for tool in "${!TEST_TOOLS[@]}"; do
+    mise uninstall "${BACKEND}:${tool}@${BACKEND_VERSION}" 2>/dev/null || true
+  done
+}
+trap cleanup EXIT
+
 # ── Link and install plugin ──────────────────────────────────────────
 mise plugins link --force "${BACKEND}" "${MISE_CONFIG_ROOT:?}"
 mise cache clear

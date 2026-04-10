@@ -22,6 +22,15 @@ end
 --- @return BackendListVersionsResult
 function PLUGIN:BackendListVersions(ctx)
     require("utils")
+    local semver = require("semver")
     local releases = get_releases()
-    return { versions = releases }
+
+    return {
+        versions = Utils.list_filter(function(rel)
+            if semver.compare(rel, "1.0.0") >= 0 then
+                return true
+            end
+            return (semver.compare(rel, "0.17.0") == 0 or semver.compare(rel, "0.17.4"))
+        end, releases),
+    }
 end

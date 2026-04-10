@@ -37,10 +37,12 @@
 ---| '"LLVM"'   # Second toolchain type
 ---| '"HOST"'   # Not a toolchain but can be installed as a tool standalone
 ---
----@class ZephyrSdkToolchainInfo
----@field install_flags string|table<string,string>|fun(tool:string):string?
----@field supported_tools string[]
----@field additional_prefix string? Path where the tool should be installed
+---@class ZephyrSdkTool
+---@field tool string Asset filename
+---@field version string Version string (e.g. "0.17.0")
+---@field zephyr_install_path string
+---@field mise_install_path string
+---@field executables? string[]
 ---
 ---@class ZephyrSdkInfo
 ---@field version string Version to install
