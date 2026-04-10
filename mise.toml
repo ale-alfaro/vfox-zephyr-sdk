@@ -21,24 +21,6 @@ run = "hk check"
 description = "Fix linting issues"
 run = "hk fix"
 
-[tasks.link_plugin]
-description = "Link local plugin to test"
-run = '''
-mise plugins link --force zephyr-sdk-test .
-mise cache clear
-'''
-
-[tasks.ls_remote]
-description = "Look at available version"
-depends = ["link_plugin"]
-usage = '''
-arg "<tool>" help="Tool" {
-    default "arm-zephyr-eabi-gcc"
-}
-'''
-run = '''
-mise ls-remote "zephyr-sdk-test:${usage_tool?}
-'''
 [tasks.install_tool]
 description = "Install tool version"
 usage = '''
