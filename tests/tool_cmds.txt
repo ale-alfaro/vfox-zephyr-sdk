@@ -1,0 +1,3 @@
+minimal=setup.sh -?
+arm-zephyr-eabi=arm-zephyr-eabi-gcc --version
+west=west --version

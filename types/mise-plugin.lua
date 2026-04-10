@@ -38,8 +38,7 @@
 ---| '"HOST"'   # Not a toolchain but can be installed as a tool standalone
 ---
 ---@class ZephyrSdkToolchainInfo
----@field supported_versions string[]|fun(version: string):boolean
----@field tool_install_cmd_mapping string|table<string,string>|fun(tool:string): string
+---@field install_flags string|table<string,string>|fun(tool:string):string?
 ---@field supported_tools string[]
 ---@field additional_prefix string? Path where the tool should be installed
 ---

@@ -8,7 +8,6 @@ lua = "5.4"
 lua-language-server = "latest"
 pkl = "latest"
 stylua = "latest"
-"zephyr-sdk:arm-zephyr-eabi-gcc" = {version = "1.0.0"}
 
 [tasks.format]
 description = "Format Lua scripts"
@@ -22,28 +21,53 @@ run = "hk check"
 description = "Fix linting issues"
 run = "hk fix"
 
-[tasks.install_plugin]
+[tasks.link_plugin]
+description = "Link local plugin to test"
 run = '''
-mise plugin link --force zephyr-sdk .
+mise plugins link --force zephyr-sdk-test .
 mise cache clear
-mise --debug install zephyr-sdk:zephyr-sdk
 '''
 
-[tasks.use_plugin]
+[tasks.ls_remote]
+description = "Look at available version"
+depends = ["link_plugin"]
 usage = '''
-arg "<sdk_version>" {
-    help "Zephyr SDK Version"
+arg "<tool>" help="Tool" {
+    default "arm-zephyr-eabi-gcc"
+}
+'''
+run = '''
+mise ls-remote "zephyr-sdk-test:${usage_tool?}
+'''
+[tasks.install_tool]
+description = "Install tool version"
+usage = '''
+arg "<tool>" help="Tool" {
+    default "minimal"
+}
+arg "<tool_version>" help="Tool Version" {
     default "0.17.4"
 }
 '''
 run = '''
-SDK_VERSION="${usage_sdk_version:?}"
-mise_toolname="zephyr-sdk:zephyr-sdk@${SDK_VERSION}"
-mise use "${mise_toolname?}"
+mise install "zephyr-sdk-test:${usage_tool?}@${usage_tool_version?}"
+'''
+[tasks.uninstall_tool]
+description = "Install tool version"
+usage = '''
+arg "<tool>" help="Tool" {
+    default "minimal"
+}
+arg "<tool_version>" help="Tool Version" {
+    default "0.17.4"
+}
+'''
+run = '''
+mise uninstall "zephyr-sdk-test:${usage_tool?}@${usage_tool_version?}"
 '''
 
 [tasks.test]
-description = "Run all CI checks: lint → smoke-test → integration-test"
+description = "Run lint → smoke-test"
 depends = ["lint", "format"]
 usage = '''
 arg "<sdk_version>" help="Zephyr SDK Version" {
@@ -51,8 +75,19 @@ arg "<sdk_version>" help="Zephyr SDK Version" {
 }
 '''
 run = '''
+mise run smoke-test zephyr-sdk-test ${usage_sdk_version?} "{{config_root}}/tests/tool_cmds.txt"
+'''
+[tasks.ci]
+description = "Run all CI checks: lint → smoke-test → integration-test"
+depends = ["test"]
+usage = '''
+arg "<sdk_version>" help="Zephyr SDK Version" {
+    default "0.17.4"
+}
+'''
+run = '''
 WORKSPACE=$(mktemp -d)
-ZEPHYR_SDK_TEST_VERSION="${usage_sdk_version:?}" mise run integration-test ${WORKSPACE?}
+mise run integration-test "${WORKSPACE?}" "${usage_sdk_version?}"
 '''
 # run = [
 #   { task = "smoke-test", args = ["{{vars.workspace}}","{{usage.sdk_version}}"] },

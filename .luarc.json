@@ -3,11 +3,13 @@
   "runtime": {
     "version": "Lua 5.1"
   },
+
   "diagnostics": {
-    "disable": ["duplicate-set-field"]
+    "disable": ["duplicate-set-field"],
+    "globals": ["Utils"]
   },
   "workspace": {
     "checkThirdParty": false,
-    "library": ["types"]
+    "library": ["types", "lib"]
   }
 }

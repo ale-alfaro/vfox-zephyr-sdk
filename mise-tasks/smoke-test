@@ -1,42 +1,67 @@
 #!/usr/bin/env bash
-#MISE description="Run plugin tests - install and verify Zephyr SDK toolchain"
-#USAGE arg "<sdk_version>" help="Zephyr SDK version to test with" env="ZEPHYR_SDK_TEST_VERSION"
-#USAGE flag "--test-tool [test_tool]" help="Tool to test" default="arm-zephyr-eabi-gcc"
+#MISE description="Run plugin tests - install and verify NCS toolchain"
+#USAGE arg "<backend>" help="Backend to test" env="BACKEND_UNDER_TEST"
+#USAGE arg "<version>" help="Backend version to test with" env="BACKEND_TEST_VERSION"
+#USAGE arg "<test_tools>" help="File with Backend tools to test with"
 set -euo pipefail
-SDK_VERSION="${usage_sdk_version:?}"
-TEST_TOOL="${usage_test_tool:?}"
 
-echo "SDK_VERSION=$SDK_VERSION TEST_TOOL=$TEST_TOOL"
+fail() {
+  echo "⚠ FAIL: $*"
+  exit 1
+}
+pass() {
+  echo "✓ PASS: $*"
+}
+
+has() {
+  type "$1" &>/dev/null
+}
+
+join_args() {
+  printf '%q ' "$@"
+}
+
+BACKEND="${usage_backend:?}"
+BACKEND_VERSION="${usage_version:?}"
+declare -A TEST_TOOLS
+
+mapfile -t -n 3 cmds <"${usage_test_tools?}"
+for cmd in "${cmds[@]}"; do
+  TEST_TOOLS[${cmd%%=*}]=${cmd#*=}
+done
+echo "BACKEND=${BACKEND}  BACKEND_VERSION=$BACKEND_VERSION  TEST_TOOLS=${!TEST_TOOLS[*]}"
 # ── Link and install plugin ──────────────────────────────────────────
-mise plugins link --force zephyr-sdk "${MISE_CONFIG_ROOT:?}"
+mise plugins link --force "${BACKEND}" "${MISE_CONFIG_ROOT:?}"
 mise cache clear
 
 # Test that the plugin can list tools (this should work even if no tools are available)
 echo "Testing plugin linking and basic functionality..."
+for tool in "${!TEST_TOOLS[@]}"; do
+  echo "TESTING TOOL: ${tool}"
+  # ── available versions ────────────────────────────────────────────────────────
+  echo "Testing version listing..."
+  if mise ls-remote "${BACKEND}:${tool}" 2>/dev/null; then
+    pass "${tool} version listing works"
+  else
+    fail "${tool} version listing failed - check backend_list_versions.lua"
+  fi
+  # ── installation────────────────────────────────────────────────────────
+  echo "Installing ${tool}@${BACKEND_VERSION}..."
+  if mise install "${BACKEND}:${tool}@${BACKEND_VERSION}" 2>/dev/null; then
+    pass "${tool} installation works"
+  else
+    fail "${tool} installation failed"
+  fi
+  test_cmd="${TEST_TOOLS[$tool]}"
 
-# Try to list available versions for a test tool
-# Note: This will likely fail until you implement the backend methods
-# Replace <TEST_TOOL> with a real tool name your backend supports
+  echo "Executing test command: ${test_cmd?}"
+  # ── execution──────────────────────────────────────────────────────────
+  if mise exec "${BACKEND}:${tool}@${BACKEND_VERSION}" -- ${test_cmd} 2>/dev/null; then
+    pass "Tool execution works: ${tool}"
+  else
+    fail "Tool execution failed: ${tool} - check backend_exec_env.lua implementation"
 
-echo "Testing version listing for ${TEST_TOOL}..."
-if mise ls-remote "zephyr-sdk:${TEST_TOOL}@${SDK_VERSION}" 2>/dev/null; then
-    echo "✓ Version listing works"
-else
-    echo "⚠ Version listing failed - implement backend_list_versions.lua for your backend"
-fi
+  fi
+done
 
-# Test installation if versions are available
-echo "Testing installation..."
-if mise install "zephyr-sdk:${TEST_TOOL}@${SDK_VERSION}" 2>/dev/null; then
-    echo "✓ Installation works"
-
-    # Test that the tool can be executed
-    if mise exec "zephyr-sdk:${TEST_TOOL}@${SDK_VERSION}" -- "${TEST_TOOL}" --version 2>/dev/null; then
-        echo "✓ Tool execution works"
-    else
-        echo "⚠ Tool execution failed - check backend_exec_env.lua implementation"
-    fi
-else
-    echo "⚠ Installation failed - implement backend_install.lua for your backend"
-fi
-echo "✓ Basic plugin structure tests completed"
+pass "Backend plugin smoke tests completed for ${BACKEND}"
