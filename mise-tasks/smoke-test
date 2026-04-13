@@ -1,78 +1,50 @@
 #!/usr/bin/env bash
-#MISE description="Run plugin tests - install and verify NCS toolchain"
+#MISE description="Smoke test all tools for a backend version"
 #MISE hide=true
-#MISE env={MISE_VERBOSE=1}
-#USAGE arg "<backend>" help="Backend to test" env="BACKEND_UNDER_TEST"
-#USAGE arg "<version>" help="Backend version to test with" env="BACKEND_TEST_VERSION"
-#USAGE arg "<test_tools>" help="File with Backend tools to test with"
 set -euo pipefail
 
-fail() {
-  echo "⚠ FAIL: $*"
-  exit 1
-}
-pass() {
-  echo "✓ PASS: $*"
-}
+: "${BACKEND:?Set BACKEND env var}"
+: "${BACKEND_VERSION:?Set BACKEND_VERSION env var}"
+CONFIG="${MISE_CONFIG_ROOT:?}/tests/tool_cmds.txt"
 
-has() {
-  type "$1" &>/dev/null
-}
-
-join_args() {
-  printf '%q ' "$@"
-}
-
-BACKEND="${usage_backend:?}"
-BACKEND_VERSION="${usage_version:?}"
-declare -A TEST_TOOLS
-
-mapfile -t -n 3 cmds <"${usage_test_tools?}"
-for cmd in "${cmds[@]}"; do
-  TEST_TOOLS[${cmd%%=*}]=${cmd#*=}
-done
-echo "BACKEND=${BACKEND}  BACKEND_VERSION=$BACKEND_VERSION  TEST_TOOLS=${!TEST_TOOLS[*]}"
+fail() { echo "⚠ FAIL: $*"; exit 1; }
+pass() { echo "✓ PASS: $*"; }
 
 cleanup() {
   echo "Cleaning up installed tools..."
-  for tool in "${!TEST_TOOLS[@]}"; do
+  while IFS='=' read -r tool _; do
     mise uninstall "${BACKEND}:${tool}@${BACKEND_VERSION}" 2>/dev/null || true
-  done
+  done < "$CONFIG"
 }
 trap cleanup EXIT
 
-# ── Link and install plugin ──────────────────────────────────────────
 mise plugins link --force "${BACKEND}" "${MISE_CONFIG_ROOT:?}"
 mise cache clear
 
-# Test that the plugin can list tools (this should work even if no tools are available)
-echo "Testing plugin linking and basic functionality..."
-for tool in "${!TEST_TOOLS[@]}"; do
-  echo "TESTING TOOL: ${tool}"
-  # ── available versions ────────────────────────────────────────────────────────
+echo "BACKEND=${BACKEND}  VERSION=${BACKEND_VERSION}"
+while IFS='=' read -r tool test_cmd; do
+  echo "── ${tool}@${BACKEND_VERSION} ──"
+
   echo "Testing version listing..."
-  if mise ls-remote "${BACKEND}:${tool}" 2>/dev/null; then
-    pass "${tool} version listing works"
+  if mise ls-remote "${BACKEND}:${tool}" > /dev/null; then
+    pass "${tool} version listing"
   else
-    fail "${tool} version listing failed - check backend_list_versions.lua"
+    fail "${tool} version listing - check backend_list_versions.lua"
   fi
-  # ── installation────────────────────────────────────────────────────────
+
   echo "Installing ${tool}@${BACKEND_VERSION}..."
-  if mise install "${BACKEND}:${tool}@${BACKEND_VERSION}" 2>/dev/null; then
-    pass "${tool} installation works"
+  if mise install "${BACKEND}:${tool}@${BACKEND_VERSION}"; then
+    pass "${tool} installation"
   else
-    fail "${tool} installation failed"
+    fail "${tool} installation"
   fi
-  test_cmd="${TEST_TOOLS[$tool]}"
 
-  echo "Executing test command: ${test_cmd?}"
-  # ── execution──────────────────────────────────────────────────────────
-  if mise exec "${BACKEND}:${tool}@${BACKEND_VERSION}" -- ${test_cmd} 2>/dev/null; then
-    pass "Tool execution works: ${tool}"
+  echo "Executing: ${test_cmd}"
+  if mise exec "${BACKEND}:${tool}@${BACKEND_VERSION}" -- ${test_cmd}; then
+    pass "${tool} execution"
   else
-    fail "Tool execution failed: ${tool} - check backend_exec_env.lua implementation"
-
+    fail "${tool} execution - check backend_exec_env.lua"
   fi
-done
+done < "$CONFIG"
 
-pass "Backend plugin smoke tests completed for ${BACKEND}"
+pass "All smoke tests passed for ${BACKEND}@${BACKEND_VERSION}"

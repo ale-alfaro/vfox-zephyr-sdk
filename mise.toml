@@ -30,17 +30,6 @@ arg "<sdk_version>" help="Zephyr SDK Version" {
 }
 '''
 run = '''
-mise run smoke-test zephyr-sdk-test ${usage_sdk_version?} "{{config_root}}/tests/tool_cmds.txt"
+BACKEND=zephyr-sdk-test BACKEND_VERSION="${usage_sdk_version:?}" mise run smoke-test
 '''
-[tasks.ci]
-description = "Run all CI checks: lint → smoke-test → integration-test"
-depends = ["test"]
-usage = '''
-arg "<sdk_version>" help="Zephyr SDK Version" {
-    default "0.17.4"
-}
-'''
-run = '''
-WORKSPACE=$(mktemp -d)
-mise run integration-test "${WORKSPACE?}" "${usage_sdk_version?}"
-'''
+

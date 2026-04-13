@@ -1,0 +1,40 @@
+[env]
+MISE_USE_VERSIONS_HOST = "0"
+BACKEND = "zephyr-sdk-test"
+
+[tools]
+hk = "latest"
+lua = "5.4"
+pkl = "latest"
+stylua = "latest"
+
+[tasks.lint-fix]
+description = "Fix linting issues"
+run = "hk fix"
+
+[tasks.ci]
+description = "Run all CI checks: lint → smoke-test → integration-test"
+depends = ["format", "lint-fix"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+cleanup() {
+  echo "Cleaning up..."
+  for v in 0.17.0 0.17.4 1.0.0; do
+    BACKEND_VERSION="$v" mise run smoke-test 2>/dev/null || true
+  done
+  mise plugins remove "${BACKEND}" 2>/dev/null || true
+  rm -rf "$HOME"/zephyr-sdk-root/*
+}
+trap cleanup EXIT
+
+mise plugins link --force "${BACKEND:?}" "${MISE_CONFIG_ROOT:?}"
+mise cache clear
+
+for v in 0.17.0 0.17.4 1.0.0; do
+  export BACKEND_VERSION="$v"
+  mise run smoke-test
+  mise run integration-test
+done
+'''
