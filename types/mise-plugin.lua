@@ -38,11 +38,10 @@
 ---| '"HOST"'   # Not a toolchain but can be installed as a tool standalone
 ---
 ---@class ZephyrSdkTool
----@field tool string Asset filename
 ---@field version string Version string (e.g. "0.17.0")
 ---@field zephyr_install_path string
 ---@field mise_install_path string
----@field executables? string[]
+---@field extra? table
 ---
 ---@class ZephyrSdkInfo
 ---@field version string Version to install

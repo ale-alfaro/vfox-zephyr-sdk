@@ -32,4 +32,3 @@ arg "<sdk_version>" help="Zephyr SDK Version" {
 run = '''
 BACKEND=zephyr-sdk-test BACKEND_VERSION="${usage_sdk_version:?}" mise run smoke-test
 '''
-

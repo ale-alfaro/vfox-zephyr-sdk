@@ -3,10 +3,32 @@
   "runtime": {
     "version": "Lua 5.1"
   },
-
   "diagnostics": {
     "disable": ["duplicate-set-field"],
-    "globals": ["Utils"]
+    "globals": [
+      "Utils",
+      "PLUGIN",
+      "RUNTIME",
+      "GITHUB_USER",
+      "GITHUB_REPO",
+      "GITHUB_API_URL",
+      "GITHUB_TOKEN",
+      "MIN_VERSION",
+      "ToolPathCache"
+    ],
+    "unusedLocalExclude": ["_*"],
+    "severity": {
+      "unused-local": "Warning",
+      "unused-function": "Warning",
+      "redundant-parameter": "Warning",
+      "missing-return-value": "Warning",
+      "missing-return": "Warning",
+      "cast-local-type": "Warning",
+      "param-type-mismatch": "Warning",
+      "return-type-mismatch": "Warning",
+      "undefined-field": "Warning"
+    },
+    "ignoredFiles": ["lib/utils/inspect.lua"]
   },
   "workspace": {
     "checkThirdParty": false,

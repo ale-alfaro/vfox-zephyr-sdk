@@ -5,12 +5,10 @@
 --- @return BackendExecEnvResult
 function PLUGIN:BackendExecEnv(ctx)
     require("utils")
+    local zephyr_sdk = require("zephyr_sdk")
     local semver = require("semver")
-    local pathlib = require("pathlib")
-    local sh = require("shell_exec")
-    local fs = require("file")
-    local zephyr_sdk_root = sh.get_zephyr_sdk_home() -- this is ~/zephyr-sdk-root
-    local zephyr_sdk_install_dir = fs.join_path(zephyr_sdk_root, "zephyr-sdk-" .. ctx.version) -- ~/zephyr_sdk_root/zephyr-sdk-<VERSION>
+    local zephyr_sdk_root = zephyr_sdk.get_zephyr_sdk_home() -- this is ~/zephyr-sdk-root
+    local zephyr_sdk_install_dir = Utils.fs.join_path(zephyr_sdk_root, "zephyr-sdk-" .. ctx.version) -- ~/zephyr_sdk_root/zephyr-sdk-<VERSION>
     local mise_install_path = ctx.install_path -- ~/zephyr_sdk_root/zephyr-sdk-<VERSION>
     if zephyr_sdk_install_dir == "" and ctx.tool ~= "minimal" then
         Utils.fatal(
@@ -22,13 +20,13 @@ function PLUGIN:BackendExecEnv(ctx)
     if semver.compare(ctx.version, "1.0.0") >= 0 then
         toolchain_variant = ctx.tool == "llvm" and "llvm" or toolchain_variant
         local path_added = ctx.tool == "llvm" and "llvm" or "gnu"
-        zephyr_sdk_install_dir = pathlib.Path(
+        zephyr_sdk_install_dir = Utils.fs.Path(
             { zephyr_sdk_install_dir, path_added },
-            { check_exists = true, fail = true }
+            { type = "directory", fail = true }
         )
     end
-    if pathlib.directory_exists(fs.join_path(ctx.install_path, "bin")) then
-        mise_install_path = fs.join_path(ctx.install_path, "bin")
+    if Utils.fs.directory_exists(Utils.fs.join_path(ctx.install_path, "bin")) then
+        mise_install_path = Utils.fs.join_path(ctx.install_path, "bin")
     end
     local env_vars = {
         {
@@ -48,11 +46,11 @@ function PLUGIN:BackendExecEnv(ctx)
         { zephyr_sdk_install_dir = zephyr_sdk_install_dir }
     )
     local toolchains_installed =
-        pathlib.scandir(zephyr_sdk_install_dir, { type = "directory", pattern = "(%w+-%w+-%w+)" })
+        Utils.fs.scandir(zephyr_sdk_install_dir, { type = "directory", pattern = "(%w+-%w+-%w+)" })
     Utils.inf("Found toolchains :", { toolchains_installed = toolchains_installed })
     for _, tc in ipairs(toolchains_installed) do
         if tc ~= ctx.tool then
-            table.insert(env_vars, { key = "PATH", value = fs.join_path(tc, "bin") })
+            table.insert(env_vars, { key = "PATH", value = Utils.fs.join_path(tc, "bin") })
         end
     end
 

@@ -1,5 +1,4 @@
-local M = {}
-
+local M = require("file") ---@module 'file'
 M.iswin = not not (RUNTIME.osType:lower():find("windows"))
 M.os_sep = M.iswin and "\\" or "/"
 
@@ -62,13 +61,15 @@ end
 ---@param directory string - The directory to scan (default value = './')
 ---@param opts ScanDirOpts - The directory to scan (default value = './')
 function M.scandir(directory, opts)
+    Utils.validate("directory", directory, "string")
+    Utils.validate("opts", opts, "table")
     if string.sub(directory, -1) ~= "/" then
         directory = directory .. "/"
     end
     local search_dir = directory
     local command = ""
 
-    if M.is_win then
+    if M.iswin then
         command = 'dir "' .. search_dir .. '" /b'
     else
         command = "ls -p " .. search_dir
@@ -99,13 +100,9 @@ end
 --- Gets the basename of the given path (not expanded/resolved).
 ---
 ---@since 10
----@generic T : string|nil
----@param file T Path
----@return T Basename of {file}
+---@param file string Path
+---@return string Basename of {file}
 function M.basename(file)
-    if file == nil then
-        return nil
-    end
     Utils.validate("file", file, "string")
     if M.iswin then
         file = file:gsub(M.os_sep, "/") --[[@as string]]
@@ -118,13 +115,10 @@ end
 --- Gets the parent directory of the given path (not expanded/resolved, the caller must do that).
 ---
 ---@since 10
----@generic T : string|nil
----@param file T Path
----@return T Parent directory of {file}
+---@param file string Path
+---@return string Parent directory of {file}
 function M.dirname(file)
-    if file == nil then
-        return nil
-    end
+    Utils.validate("file", file, "string")
     if M.iswin then
         file = file:gsub(M.os_sep, "/") --[[@as string]]
         if file:match("^%w:/?$") then
@@ -144,39 +138,51 @@ function M.dirname(file)
     return dir
 end
 
----@class PathOpts
+---@class PathExistsOpts
+---@field type PathType
 ---@field create? boolean
----@field check_exists? boolean
+
+---@param path string
+---@param opts? PathExistsOpts
+---@return boolean
+function M.path_exists(path, opts)
+    Utils.validate("path", path, "string")
+    Utils.validate("opts", opts, "table", true)
+    opts = opts or { type = "directory" }
+    local exists = false
+    if opts.type == "file" then
+        exists = M.exists(path)
+    else
+        exists = M.directory_exists(path)
+    end
+    if not exists and opts.create then
+        local cmd = { "mkdir", "-p", path }
+        if opts.type == "file" then
+            cmd = { "touch", path }
+        end
+        Utils.sh.safe_exec(cmd, { fail = true })
+        return true
+    end
+    return exists
+end
+
+---@class PathOpts : PathExistsOpts
 ---@field fail? boolean
 
-local file = require("file")
 ---@param components string[]
 ---@param opts? PathOpts
----@return string path
+---@return string? path
 function M.Path(components, opts)
-    if type(components) ~= "table" then
-        Utils.err("Components is not a table", { components = components })
-    end
+    Utils.validate("components", components, Utils.islist)
+    Utils.validate("opts", opts, "table", true)
+
     opts = opts or {}
-    local path = file.join_path(unpack(components))
-    if opts.create then
-        local ok = require("shell_exec").safe_exec("mkdir -p " .. path)
-        if not ok then
-            Utils.wrn("Path not created!: ", { path = path })
-        else
-            Utils.inf("Path created successfully: ", { path = path })
+    local path = Utils.strings.trim_space(M.join_path(unpack(components)))
+    if not M.path_exists(path, opts) then
+        if opts.fail then
+            error("Path does not exists")
         end
-        return path
-    end
-    if opts.check_exists then
-        if path == nil or path == "" or not file.exists(path) then
-            if opts.fail then
-                Utils.fatal("Path does not exist : ", { path = path })
-            else
-                Utils.inf("Path does not exist : ", { path = path })
-            end
-            return ""
-        end
+        return nil
     end
     return path
 end

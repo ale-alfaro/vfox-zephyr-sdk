@@ -2,12 +2,12 @@
 ---@param install_dir string
 ---@param download_dir string
 local download_minmal_sdk = function(version, install_dir, download_dir)
-    local fs = require("file")
-    local pathlib = require("pathlib")
+    Utils.validate("version", version, "string", "Version must be string")
+    Utils.validate("install_dir", install_dir, "string", "install_dir must be string")
+    Utils.validate("download_dir", download_dir, "string", "download_dir must be string")
     local gh = require("gh")
-    local sh = require("shell_exec")
-    if not pathlib.directory_exists(download_dir) then
-        sh.safe_exec("mkdir -p " .. download_dir)
+    if not Utils.fs.directory_exists(download_dir) then
+        Utils.sh.safe_exec({ "mkdir", "-p", download_dir }, { fail = true })
     end
 
     Utils.inf("Getting assets for version:", { sdk_version = version, install_dir = install_dir })
@@ -15,103 +15,116 @@ local download_minmal_sdk = function(version, install_dir, download_dir)
     -- ── Normalise SDK root ──────────────────────────────────────────────
     -- The minimal SDK tar may extract with a top-level zephyr-sdk-<ver>/
     -- directory. Flatten it so the SDK root is always `install_path`.
-    local version_file = pathlib.Path({ install_dir, "sdk_version" })
-    if version_file == "" then
+    local version_file = Utils.fs.Path({ install_dir, "sdk_version" })
+    if not version_file then
+        local nested_dir = Utils.fs.join_path(install_dir, "zephyr-sdk-" .. version)
+        if Utils.fs.directory_exists(nested_dir) then
+            Utils.inf("Flattening nested SDK directory", { nested_dir = nested_dir })
+            Utils.sh.safe_exec(
+                string.format("mv %q/* %q/ && rmdir %q", nested_dir, install_dir, nested_dir),
+                { fail = true }
+            )
+            version_file = Utils.fs.Path({ install_dir, "sdk_version" })
+        end
+    end
+    if not version_file then
         Utils.fatal(
             "Invalid Zephyr SDK: sdk_version not found in install path or subdirectories",
             { install_path = install_dir }
         )
     end
-    local sdk_version = require("strings").trim_space(fs.read(version_file))
+    local sdk_version = require("strings").trim_space(Utils.fs.read(version_file))
     Utils.inf("Zephyr SDK version:" .. sdk_version)
 end
 
 local M = {}
 
-M.toolchain_patterns = {
-    ["(llvm)"] = "-t",
-    ["(host)"] = "-h",
-    ["(%w+-%w+-%w+)"] = "-t",
-}
+---@return string zephyr_sdk_home
+M.get_zephyr_sdk_home = function()
+    local os_name = RUNTIME.osType:lower()
+    local home = os.getenv("HOME")
+    local mac_linux_loc = home .. "/zephyr-sdk-root"
+    local platform_map = {
+        darwin = mac_linux_loc,
+        linux = mac_linux_loc,
+        windows = "C:\\zephyr-sdk-root",
+    }
 
----@type table<string, fun(tool:ZephyrSdkTool)>
+    return platform_map[os_name]
+end
+
+---@param version string
+---@param zephyr_install_path string
+M.minimal_install = function(version, zephyr_install_path)
+    Utils.validate("version", version, "string")
+    Utils.validate("zephyr_install_path", zephyr_install_path, "string")
+
+    local zephyr_sdk_download_path = Utils.fs.Path(
+        { M.get_zephyr_sdk_home(), "downloads" },
+        { type = "directory", create = true }
+    )
+    Utils.inf(
+        "Zephyr-SDK installer not found. Installing in zephyr home first",
+        { zephyr_sdk_bin_path = zephyr_install_path }
+    )
+    download_minmal_sdk(version, zephyr_install_path, zephyr_sdk_download_path)
+
+    Utils.sh.safe_exec({ "chmod", "+x", zephyr_install_path }, { fail = true })
+    Utils.inf("Minimal Installation successful")
+end
+
+---@type table<string, fun(name:string,tool:ZephyrSdkTool)>
 M._install_funcs = {
 
+    --- @param name string
     --- @param tool ZephyrSdkTool
-    ["minimal"] = function(tool)
-        local fs = require("file")
-        local sh = require("shell_exec")
-
-        if not fs.exists(tool.zephyr_install_path) then
-            local pathlib = require("pathlib")
-            local zephyr_sdk_download_path = pathlib.Path({ sh.get_zephyr_sdk_home(), "downloads" }, { create = true })
-            Utils.inf(
-                "Zephyr-SDK installer not found. Installing in zephyr home first",
-                { zephyr_sdk_bin_path = tool.zephyr_install_path }
-            )
-            download_minmal_sdk(tool.version, pathlib.dirname(tool.zephyr_install_path), zephyr_sdk_download_path)
-
-            sh.safe_exec("chmod +x " .. tool.zephyr_install_path)
-            Utils.inf("Minimal Installation successful")
-        end
-        if not fs.exists(tool.mise_install_path) then
-            Utils.inf(
-                "Now Symlinking minimal installation to mise install path ",
-                { mise_executable = tool.mise_install_path, zephyr_sdk_executable = tool.zephyr_install_path }
-            )
-            fs.symlink(tool.zephyr_install_path, tool.mise_install_path)
-        end
-        Utils.inf("Successfully installed at", { mise_executable = tool.mise_install_path })
-    end,
-    --- @param tool ZephyrSdkTool
-    ["bin/.*"] = function(tool)
-        local fs = require("file")
-        local pathlib = require("pathlib")
-        local strings = require("strings")
-        local sh = require("shell_exec")
+    ["(%w+-%w+-%w+)"] = function(name, tool)
+        Utils.validate("name", name, "string", "Name must be string")
+        Utils.validate("tool", tool, "table", "Tool must be table")
         local zephyr_sdk_bin_path, mise_bin_path = tool.zephyr_install_path, tool.mise_install_path
 
-        local zephyr_sdk_setup_sh = tool.executables[1] or "setup.sh"
-        if not pathlib.directory_exists(zephyr_sdk_bin_path) then
-            local matched = false
-            for pattern, install_cmd in pairs(M.toolchain_patterns) do
-                local flags_matched = string.find(tool.tool, pattern) ~= nil and install_cmd or ""
-                if flags_matched ~= "" then
-                    matched = true
-                    local cmd_matched = strings.join({ zephyr_sdk_setup_sh, flags_matched, tool }, " ")
-                    Utils.inf("Matched tool with toolchain install cmd", { tool = tool, cmd_matched = cmd_matched })
-                    if not sh.safe_exec(cmd_matched) then
-                        Utils.fatal("Toolchain not able to install for tool", { tool = tool })
-                    end
-                    break
-                end
-            end
-            if not matched then
-                Utils.fatal("Toolchain object not found for tool", { tool = tool })
+        local zephyr_sdk_setup_sh = assert(tool.extra["setup_sh"])
+        if not Utils.fs.directory_exists(zephyr_sdk_bin_path) then
+            Utils.inf("Matched with toolchain install cmd", { toolchain = name })
+            if not Utils.sh.safe_exec({ zephyr_sdk_setup_sh, "-t", name }) then
+                Utils.fatal("Toolchain not able to install for tool", { tool = tool })
             end
         end
-        if not pathlib.directory_exists(mise_bin_path) then
+        if not Utils.fs.directory_exists(mise_bin_path) then
             Utils.inf(
                 "Zephyr SDK tool installed. Symliniking into mise tool path ",
                 { zephyr_sdk_bin_path = zephyr_sdk_bin_path, mise_bin_path = mise_bin_path }
             )
-            fs.symlink(zephyr_sdk_bin_path, mise_bin_path)
+            Utils.fs.symlink(zephyr_sdk_bin_path, mise_bin_path)
             return
         end
     end,
+    ["(host)"] = function(_name, tool)
+        local zephyr_sdk_setup_sh = assert(tool.extra["setup_sh"])
+        if not Utils.sh.safe_exec({ zephyr_sdk_setup_sh, "-h" }) then
+            Utils.fatal("Toolchain not able to install for tool", { tool = tool })
+        end
+    end,
+    ["(llvm)"] = function(_name, tool)
+        local zephyr_sdk_setup_sh = assert(tool.extra["setup_sh"])
+        if not Utils.sh.safe_exec({ zephyr_sdk_setup_sh, "-h" }) then
+            Utils.fatal("Toolchain not able to install for tool", { tool = tool })
+        end
+    end,
+    --- @param name string
     --- @param tool ZephyrSdkTool
-    ["west"] = function(tool)
-        local fs = require("file")
-        local sh = require("shell_exec")
+    ["(west)"] = function(name, tool)
+        Utils.validate("name", name, "string", "Name must be string")
+        Utils.validate("tool", tool, "table", "Tool must be table")
 
-        local plugin_path = sh.safe_exec(string.format("realpath %q", RUNTIME.pluginDirPath), {}, true)
-        local local_west = fs.join_path(plugin_path, "bin", "west")
-        if not fs.exists(tool.mise_install_path) then
-            sh.safe_exec(string.format("cp %q %q", local_west, tool.mise_install_path), {}, true)
+        local plugin_path = Utils.sh.safe_exec(string.format("realpath %q", RUNTIME.pluginDirPath), { fail = true })
+        local local_west = Utils.fs.join_path(plugin_path, "bin", "west")
+        if not Utils.fs.exists(tool.mise_install_path) then
+            Utils.sh.safe_exec(string.format("cp %q %q", local_west, tool.mise_install_path), { fail = true })
             Utils.inf("Copied west shim", { west_shim = local_west, mise_west = tool.mise_install_path })
         end
-        if not fs.exists(tool.zephyr_install_path) then
-            fs.symlink(tool.mise_install_path, tool.zephyr_install_path)
+        if not Utils.fs.exists(tool.zephyr_install_path) then
+            Utils.fs.symlink(tool.mise_install_path, tool.zephyr_install_path)
             Utils.inf(
                 "Created symlik to west in Zephyr install path",
                 { mise_install_path = tool.mise_install_path, zephyr_west = tool.zephyr_install_path }

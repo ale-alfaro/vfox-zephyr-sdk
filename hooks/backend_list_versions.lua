@@ -18,9 +18,9 @@ local function get_releases()
     return releases
 end
 
---- @param ctx BackendListVersionsCtx
+--- @param _ctx BackendListVersionsCtx
 --- @return BackendListVersionsResult
-function PLUGIN:BackendListVersions(ctx)
+function PLUGIN:BackendListVersions(_ctx)
     require("utils")
     local semver = require("semver")
     local releases = get_releases()
@@ -30,7 +30,7 @@ function PLUGIN:BackendListVersions(ctx)
             if semver.compare(rel, "1.0.0") >= 0 then
                 return true
             end
-            return (semver.compare(rel, "0.17.0") == 0 or semver.compare(rel, "0.17.4"))
+            return (semver.compare(rel, "0.17.0") == 0 or semver.compare(rel, "0.17.4") >= 0)
         end, releases),
     }
 end
