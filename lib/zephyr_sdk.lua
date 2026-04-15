@@ -15,11 +15,11 @@ Utils._submodules = {
     sh = true,
     net = true,
     store = true,
+    semver = true,
 }
 
 Utils._mise_submods = {
     strings = true,
-    semver = true,
     file = true,
     http = true,
     cmd = true,
@@ -47,6 +47,7 @@ _G.ZephyrSdk = _G.ZephyrSdk or {}
 ---@class ZephyrSDK._tools : table<string, ZephyrTool>
 ZephyrSdk._tools = {
     toolchain = true,
+    ncs_toolchain = true,
     west = true,
 }
 ---@class ZephyrSDK._tools_alias : table<string, string>
@@ -56,6 +57,7 @@ ZephyrSdk._tools_alias = {
     ["gnu_zephyr"] = "toolchain",
     ["llvm"] = "toolchain",
     ["hosttools"] = "toolchain",
+    ["ncs"] = "ncs_toolchain",
 }
 
 -- These are for loading runtime modules in the vim namespace lazily.

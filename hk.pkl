@@ -2,9 +2,13 @@ amends "package://github.com/jdx/hk/releases/download/v1.18.1/hk@1.18.1#/Config.
 import "package://github.com/jdx/hk/releases/download/v1.18.1/hk@1.18.1#/Builtins.pkl"
 
 local linters = new Mapping<String, Step> {
-    ["lua-check"] {
+    ["lua-type-check"] {
         glob = "**/*.lua"
-        check = "lua-language-server --check . --checklevel=Warning"
+        check = "lua-language-server --check . --checklevel=Error"
+    }
+    ["luacheck"] {
+        glob = "**/*.lua"
+        check = "luacheck -q {{files}}"
     }
     ["stylua"] {
         glob = "**/*.lua"
