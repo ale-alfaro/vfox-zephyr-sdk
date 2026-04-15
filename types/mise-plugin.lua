@@ -1,60 +1,53 @@
 --- LuaCATS type definitions for mise backend plugins
 --- These annotations provide IDE support via lua-language-server.
 --- See https://luals.github.io/wiki/annotations/
-
+---@meta
 ------------------------------------------------------------------------
 -- Zephyr SDK specific types
 ------------------------------------------------------------------------
 
----@class ZephyrSdkReleaseCache
----@field releases? ZephyrSdkRelease[]
----@field timestamp? number
-
----@class PreInstallResult
----@field version string Version string
----@field url string Download URL
----@field sha256? string Optional SHA256 checksum
----@field note? string Optional note
----@field addition? table[] Optional additional components
-
----@class ZephyrSdkRelease
----@field tag_name string Release tag (e.g. "v0.17.0")
----@field prerelease boolean Whether this is a pre-release
----@field assets ZephyrSdkAsset[] Release assets
-
----@class ZephyrSdkAsset
----@field name string Asset filename
----@field browser_download_url string Download URL
-
----@class ZephyrSdkAssetResult
----@field version string Version string (e.g. "0.17.0")
----@field url string Download URL
----@field name string Asset filename
-
----@alias ZephyrSdkToolchainType
+---@alias ZephyrSdkOsType
+---| '"linux"'
+---| '"darwin"'
+---| '"windows"'
+---
+---@alias ZephyrSdkArchType
+---| '"amd64"'
+---| '"arm64"'
+---
+---
+---@alias Version string
+---
+---@alias ZephyrSdkToolchainFamily
 ---| '"ZEPHYR"'
 ---| '"GNU"'
 ---| '"LLVM"'
 ---| '"HOST"'
+---
+---@alias AssetMap table<ZephyrSdkOsType, table<ZephyrSdkArchType, ZephyrSdkAsset>> Release assets
+---@class ZephyrSdkReleaseCache
+---@field releases? table<Version, ZephyrSdkRelease>
+---@field timestamp? number
 
----@class ZephyrSdkTool
+---@class ZephyrSdkRelease
+---@field tag_name string Release tag (e.g. "v0.17.0")
+---@field minimal_assets AssetMap
+
+---@class ZephyrSdkAsset
+---@field asset_name string
 ---@field version string Version string (e.g. "0.17.0")
----@field zephyr_install_path string
----@field mise_install_path string
----@field extra? table
-
----@class ZephyrSdkInfo
----@field version string Version to install
----@field installDir string Path where the root of toolchain should be installed
-
-------------------------------------------------------------------------
--- ZephyrSDK specific types
-------------------------------------------------------------------------
+---@field browser_download_url string
+---@field url string
+---@field checksum string
 
 ---@class ZephyrTool
 ---@field list_versions? fun(): string[]
 ---@field install fun(ctx: BackendInstallCtx): nil
 ---@field envs fun(ctx: BackendExecEnvCtx): table<string,string>
+
+---@class ZephyrSdkToolchain
+---@field run_setup fun(setup_fn:fun(args:string[], kwargs?:table<string,string>), ctx:BackendInstallCtx): nil
+---@field envs? fun(ctx: BackendExecEnvCtx): table<string,string>
 
 ------------------------------------------------------------------------
 -- Globals

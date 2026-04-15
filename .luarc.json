@@ -29,7 +29,7 @@
     }
   },
   "workspace": {
-    "checkThirdParty": false,
+    "checkThirdParty": true,
     "library": [
       "types",
       "lib"

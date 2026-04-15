@@ -22,6 +22,7 @@ function M.get_mise_tool_prefix(tool)
 end
 ---@class ShCmdExecOpts : CmdExecOpts
 ---@field fail? boolean If true a failure in the command exec will error out
+---@field output_lines? boolean If true a failure in the command exec will error out
 
 ---@param exec_cmd string|string[]
 ---@param opts ShCmdExecOpts?
@@ -30,24 +31,26 @@ function M.safe_exec(exec_cmd, opts)
     Utils.validate("exec_cmd", exec_cmd, { "string", "table" }, "Exec cmd must be string or array")
     Utils.validate("opts", opts, "table", true)
     opts = opts or {}
-    local cmd
-    if type(exec_cmd) == "table" and Utils.islist(exec_cmd) then
-        cmd = Utils.strings.join(exec_cmd, " ")
-    elseif type(exec_cmd) == "string" then
-        cmd = exec_cmd
-    else
-        Utils.err("Command invalid: ", { exec_cmd = exec_cmd })
-    end
-    Utils.inf("Executing command: ", { cmd = cmd })
-    local ok, result = pcall(M.exec, cmd, opts)
+    exec_cmd = exec_cmd or ""
+    local sh_cmd = Utils.strings.join(Utils.ensure_list(exec_cmd), " ") or ""
+    local ok, result
+    Utils.inf("Executing command: " .. sh_cmd)
+    ok, result = pcall(M.exec, sh_cmd, opts)
     if not ok then
-        local err_msg = tostring(result)
+        Utils.err("Command execution failed : ")
+        if result then
+            local err_msg = Utils.strings.split(tostring(result) or "", "\n")
+            for _, line in ipairs(err_msg) do
+                Utils.err(line)
+            end
+        end
         if opts.fail then
-            Utils.fatal("Command execution failed : ", { err = err_msg })
-        else
-            Utils.err("Command execution failed : ", { err = err_msg })
+            error("Command execution failed")
         end
         return nil
+    end
+    if opts.output_lines then
+        return Utils.strings.split(result, "\n")
     end
     return Utils.strings.trim_space(result)
 end

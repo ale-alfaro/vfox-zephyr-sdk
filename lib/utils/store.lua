@@ -1,4 +1,10 @@
 local M = {}
+
+function M.store_exists(store_name)
+    local store_json = Utils.fs.join_path(RUNTIME.pluginDirPath, string.format("%s_store.json", store_name))
+    return Utils.fs.exists(store_json)
+end
+
 ---@param data table
 ---@param store_name string
 ---@return string?

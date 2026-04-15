@@ -2,15 +2,21 @@
 local M = {}
 
 --- Installs the west shim script into the mise install path.
----@param _version string The mise-provided install path
----@param install_path string The mise-provided install path
----@param _download_path string The mise-provided install path
-function M.install(_version, install_path, _download_path)
-    local plugin_path = Utils.sh.safe_exec(string.format("realpath %q", RUNTIME.pluginDirPath), { fail = true })
+---@param ctx BackendInstallCtx The mise-provided install path
+function M.install(ctx)
+    local _version, install_path, _download_path = ctx.version, ctx.install_path, ctx.download_path
+    local plugin_path = Utils.sh.safe_exec({ "realpath", RUNTIME.pluginDirPath }, { fail = true })
     local local_west = Utils.fs.join_path(plugin_path, "bin", "west")
     local mise_install_path = Utils.fs.Path({ install_path, "west" })
     if not Utils.fs.exists(mise_install_path) then
-        Utils.sh.safe_exec(string.format("cp %q %q", local_west, install_path), { fail = true })
+        local cpcmd = string.format("cp %s %s", local_west, install_path)
+        local ret = os.execute(cpcmd)
+        if ret ~= 0 then
+            Utils.err(
+                "Failed to copy west shim err: " .. ret,
+                { west_shim = local_west, mise_west = mise_install_path }
+            )
+        end
         Utils.inf("Copied west shim", { west_shim = local_west, mise_west = mise_install_path })
     end
 end
@@ -19,10 +25,10 @@ end
 
 --- Returns environment variables for the west shim.
 --- Clears Python env vars that may leak from ZephyrSDK toolchain activation.
----@param _version string The mise-provided install path
----@param install_path string The mise-provided install path
+---@param ctx BackendExecEnvCtx
 ---@return EnvKey[] env_vars Array of {key, value} tables
-function M.envs(_version, install_path) -- luacheck: no unused args
+function M.envs(ctx) -- luacheck: no unused args
+    local install_path = ctx.install_path
     local env_vars = {
         { key = "PATH", value = install_path },
     }

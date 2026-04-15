@@ -52,6 +52,52 @@ Utils.fatal = function(msg, ...)
     Utils.err(...)
     error("FATAL:" .. msg)
 end
+
+--- @generic T
+--- @param x T|T[]
+--- @return T[]
+function Utils.ensure_list(x)
+    if type(x) == "table" then
+        return x
+    end
+    return { x }
+end
+--- Return a list of all keys used in a table.
+--- However, the order of the return table of keys is not guaranteed.
+---
+---@see From https://github.com/premake/premake-core/blob/master/src/base/table.lua
+---
+---@generic T
+---@param t table<T, any> (table) Table
+---@return T[] : List of keys
+function Utils.tbl_keys(t)
+    Utils.validate("t", t, "table")
+    --- @cast t table<any,any>
+
+    local keys = {}
+    for k in pairs(t) do
+        table.insert(keys, k)
+    end
+    return keys
+end
+
+--- Return a list of all values used in a table.
+--- However, the order of the return table of values is not guaranteed.
+---
+---@generic T
+---@param t table<any, T> (table) Table
+---@return T[] : List of values
+function Utils.tbl_values(t)
+    Utils.validate("t", t, "table")
+
+    local values = {}
+    for _, v in
+        pairs(t --[[@as table<any,any>]])
+    do
+        table.insert(values, v)
+    end
+    return values
+end
 --- Applies function `fn` to all values of table `t`, in `pairs()` iteration order (which is not
 --- guaranteed to be stable, even when the data doesn't change).
 ---@generic T
