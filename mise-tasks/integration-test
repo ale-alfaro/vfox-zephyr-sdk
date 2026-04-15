@@ -1,36 +1,40 @@
 #!/usr/bin/env bash
 #MISE description="Integration test - build a Zephyr sample with the Zephyr SDK"
-#MISE depends=["smoke-test"]
-#MISE tools="{ python = 3.13 , uv = latest, pipx:west = 1.5.0 , ninja = latest}"
-#USAGE arg "<dir>" help="Workspace directory"
-#USAGE arg "<sdk_version>" help="Zephyr SDK version to test with" env="ZEPHYR_SDK_TEST_VERSION"
-
+#MISE hide=true
 set -euo pipefail
-WORKSPACE="${usage_dir:?}"
-SDK_VERSION="${usage_sdk_version:?}"
 
-echo "WORKSPACE=${WORKSPACE} SDK_VERSION=$SDK_VERSION"
-pushd "${WORKSPACE}"
-APPDIR="${WORKSPACE?}/app"
+: "${BACKEND:?Set BACKEND env var}"
+: "${BACKEND_VERSION:?Set BACKEND_VERSION env var}"
+
+fail() {
+  echo "⚠ FAIL: $*"
+  exit 1
+}
+pass() { echo "✓ PASS: $*"; }
+
+WORKSPACE="$(mktemp -d)"
+declare -A ZEPHYR_COMPAT
+ZEPHYR_COMPAT=(
+  ["v1.0.0"]="v4.4.0"
+  ["v0.17.4"]="v4.3.0"
+  ["v0.17.0"]="v4.0.0"
+)
+
 cleanup() {
-    echo "Cleanup!"
-    rm -rf "$WORKSPACE"
+  echo "Cleaning up..."
+  mise uninstall "${BACKEND}:west@${BACKEND_VERSION}" 2>/dev/null || true
+  mise uninstall "${BACKEND}:arm-zephyr-eabi@${BACKEND_VERSION}" 2>/dev/null || true
+  mise uninstall "${BACKEND}:minimal@${BACKEND_VERSION}" 2>/dev/null || true
+  rm -rf "$WORKSPACE"
 }
 trap cleanup EXIT
 
-# Try to list available versions for a test tool
-# Note: This will likely fail until you implement the backend methods
-# Replace <TEST_TOOL> with a real tool name your backend supports
-TEST_TOOL="arm-zephyr-eabi-gcc"
-# ── Install toolchain ──────────────────────────────────────────────
-# mise plugins link --force zephyr-sdk "${MISE_CONFIG_ROOT:?}"
-# mise cache clear
-# mise ls-remote zephyr-sdk:zephyr-sdk
-# mise install "zephyr-sdk:${TEST_TOOL}@${SDK_VERSION}"
-# mise exec "zephyr-sdk:${TEST_TOOL}@${SDK_VERSION}" -- ${TEST_TOOL} --version
+ZEPHYR_VERSION="${ZEPHYR_COMPAT["v${BACKEND_VERSION}"]}"
+echo "WORKSPACE=${WORKSPACE}  BACKEND_VERSION=${BACKEND_VERSION}  ZEPHYR_VERSION=${ZEPHYR_VERSION}"
+APPDIR="${WORKSPACE}/app"
 
 # ── Write minimal west manifest ────────────────────────────────────
-mkdir "${APPDIR?}"
+mkdir -p "${APPDIR}"
 cat >"${APPDIR}/west.yml" <<YAML
 manifest:
   remotes:
@@ -39,32 +43,27 @@ manifest:
   projects:
     - name: zephyr
       remote: zephyrproject-rtos
-      revision: main
+      revision: ${ZEPHYR_VERSION:?}
       clone-depth: 1
       import:
         name-allowlist:
           - cmsis
-
   self:
     path: app
 YAML
 
 # ── West init & update ─────────────────────────────────────────────
-pushd "${APPDIR}"
-mise exec pipx:west@1.5.0 -- west init -l .
-WEST_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/zephyr-sdk-plugin-test/west"
+cd "${APPDIR}"
+mise x "${BACKEND}:west@${BACKEND_VERSION}" -- west init -l .
+WEST_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/vfox-${BACKEND}"
 mkdir -p "${WEST_CACHE}"
-mise exec pipx:west@1.5.0 -- west update --narrow --auto-cache "${WEST_CACHE}"
-mise use zephyr-sdk:zephyr-sdk
-mise run "$MISE_ORIGINAL_CWD/mise-tasks/uv-init" -r "${WORKSPACE}/zephyr/scripts/requirements.txt"
+mise x "${BACKEND}:west@${BACKEND_VERSION}" -- west update --narrow --auto-cache "${WEST_CACHE}"
 mise set ZEPHYR_BASE="$WORKSPACE/zephyr"
-mise x "zephyr-sdk:${TEST_TOOL}@${SDK_VERSION}" -- west build -p -b native_sim -s "$WORKSPACE/zephyr/samples/hello_world" -d build
+mise x "${BACKEND}:west@${BACKEND_VERSION}" -- west build -p -b native_sim -s "$WORKSPACE/zephyr/samples/hello_world" -d build
 
 # ── Verify output ──────────────────────────────────────────────────
 if [[ -d build && -e build/zephyr/zephyr.exe ]]; then
-    echo "Integration test passed: zephyr.elf built successfully"
+  pass "Integration test: zephyr.exe built successfully"
 else
-    echo "Integration test failed: build/zephyr/zephyr.elf not found"
-    exit 1
+  fail "Integration test: build/zephyr/zephyr.exe not found"
 fi
-popd

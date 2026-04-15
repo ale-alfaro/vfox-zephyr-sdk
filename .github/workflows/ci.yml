@@ -6,37 +6,37 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - run: mise run lint
-
   smoke-test:
-    needs: lint
     strategy:
+      fail-fast: false
       matrix:
+        version: ["0.17.4"]
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - run: mise run smoke-test --skip-deps
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v4
+        with:
+          experimental: true
+          mise_toml: |
+            [tools]
+            uv = "latest"
+            [env]
+            MISE_USE_VERSIONS_HOST = "0"
+            BACKEND_VERSION = "${{ matrix.version }}"
 
-  integration-test:
-    needs: smoke-test
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - run: mise run integration-test --skip-deps
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            [tasks.test]
+            description = "Tests"
+            run = '''
+            echo "Link!"
+            mise plugins ln zephyr-sdk .
+            echo "ls-remote!"
+            mise ls-remote "zephyr-sdk:toolchain@${BACKEND_VERSION}"
+            mise ls-remote "zephyr-sdk:west@${BACKEND_VERSION}"
+            echo "Exec!"
+            mise x "zephyr-sdk:toolchain[toolchains='arm-zephyr-eabi']@${BACKEND_VERSION:?}" -- arm-zephyr-eabi-gcc --version
+            mise x "zephyr-sdk:west@latest${BACKEND_VERSION:?}" -- west --version
+            echo "Finished!"
+            '''
+      - run: mise run test

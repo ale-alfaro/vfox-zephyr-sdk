@@ -4,10 +4,35 @@
     "version": "Lua 5.1"
   },
   "diagnostics": {
-    "disable": ["duplicate-set-field"]
+    "disable": [
+      "duplicate-set-field"
+    ],
+    "globals": [
+      "Utils",
+      "PLUGIN",
+      "RUNTIME",
+      "ZephyrSdk"
+    ],
+    "unusedLocalExclude": [
+      "_*"
+    ],
+    "severity": {
+      "unused-local": "Warning",
+      "unused-function": "Warning",
+      "redundant-parameter": "Warning",
+      "missing-return-value": "Warning",
+      "missing-return": "Warning",
+      "cast-local-type": "Warning",
+      "param-type-mismatch": "Warning",
+      "return-type-mismatch": "Warning",
+      "undefined-field": "Warning"
+    }
   },
   "workspace": {
-    "checkThirdParty": false,
-    "library": ["types"]
+    "checkThirdParty": true,
+    "library": [
+      "types",
+      "lib"
+    ]
   }
 }
