@@ -1,6 +1,16 @@
 ---@nodoc
 _G.Utils = _G.Utils or {} --[[@as table]]
 
+--- Returns the current OS name lowercased.
+---@return string
+function Utils.os()
+    return RUNTIME.osType:lower()
+end
+
+local arch_map = { amd64 = "x86_64", arm64 = "aarch64", x86_64 = "x86_64", aarch64 = "aarch64" }
+function Utils.arch()
+    return arch_map[RUNTIME.archType]
+end
 --- Print Lua objects in command line
 ---
 ---@param print_fn? fun(any):any  number of objects to be printed each on separate line.
@@ -515,14 +525,6 @@ function Utils.spairs(t)
             return k, t[k]
         end
     end
-end
-
---- Log a deprecation warning (no-op in plugin context, just prints warning).
----@param old_name string
----@param new_name string
----@param _version string
-function Utils.deprecate(old_name, new_name, _version)
-    Utils.wrn(old_name .. " is deprecated, use " .. new_name)
 end
 
 --- Split a version string into numeric parts

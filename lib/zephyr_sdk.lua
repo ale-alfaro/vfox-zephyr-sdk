@@ -14,6 +14,7 @@ Utils._submodules = {
     fs = true,
     sh = true,
     net = true,
+    store = true,
 }
 
 Utils._mise_submods = {
@@ -42,28 +43,29 @@ setmetatable(Utils, {
 ---@field install fun(version: string,install_path:string, install_path:string): nil
 ---@field envs fun(version: string,install_path:string):EnvKey[]
 
-_G.ZephyrSDK = _G.ZephyrSDK or {}
+_G.ZephyrSdk = _G.ZephyrSdk or {}
 ---@class ZephyrSDK._tools : table<string, ZephyrTool>
-ZephyrSDK._tools = {
-    gnu_zephyr = true,
-    llvm = true,
-    hosttools = true,
+ZephyrSdk._tools = {
+    toolchain = true,
     west = true,
 }
 ---@class ZephyrSDK._tools_alias : table<string, string>
-ZephyrSDK._tools_alias = {
-    ["toolchain"] = "gnu_zephyr",
-    ["arm-zephyr-eabi"] = "gnu_zephyr",
+ZephyrSdk._tools_alias = {
+    ["zephyr-sdk"] = "toolchain",
+    ["arm-zephyr-eabi"] = "toolchain",
+    ["gnu_zephyr"] = "toolchain",
+    ["llvm"] = "toolchain",
+    ["hosttools"] = "toolchain",
 }
 
 -- These are for loading runtime modules in the vim namespace lazily.
-setmetatable(ZephyrSDK, {
+setmetatable(ZephyrSdk, {
     --- @param t table<string,ZephyrTool>
     __index = function(t, key)
-        if ZephyrSDK._tools_alias[key] then
-            key = ZephyrSDK._tools_alias[key]
+        if ZephyrSdk._tools_alias[key] then
+            key = ZephyrSdk._tools_alias[key]
         end
-        if ZephyrSDK._tools[key] then
+        if ZephyrSdk._tools[key] then
             t[key] = require(key)
             return t[key]
         end

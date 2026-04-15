@@ -4,19 +4,18 @@
     "version": "Lua 5.1"
   },
   "diagnostics": {
-    "disable": ["duplicate-set-field"],
+    "disable": [
+      "duplicate-set-field"
+    ],
     "globals": [
       "Utils",
       "PLUGIN",
       "RUNTIME",
-      "GITHUB_USER",
-      "GITHUB_REPO",
-      "GITHUB_API_URL",
-      "GITHUB_TOKEN",
-      "MIN_VERSION",
-      "ToolPathCache"
+      "ZephyrSdk"
     ],
-    "unusedLocalExclude": ["_*"],
+    "unusedLocalExclude": [
+      "_*"
+    ],
     "severity": {
       "unused-local": "Warning",
       "unused-function": "Warning",
@@ -27,11 +26,13 @@
       "param-type-mismatch": "Warning",
       "return-type-mismatch": "Warning",
       "undefined-field": "Warning"
-    },
-    "ignoredFiles": ["lib/utils/inspect.lua"]
+    }
   },
   "workspace": {
     "checkThirdParty": false,
-    "library": ["types", "lib"]
+    "library": [
+      "types",
+      "lib"
+    ]
   }
 }

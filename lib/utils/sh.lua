@@ -1,31 +1,5 @@
 local M = require("cmd") ---@module 'cmd'
 
---- Returns the current OS name lowercased.
----@return string
-function M.get_os()
-    return RUNTIME.osType:lower()
-end
-
-M.ARCH_MAP = { amd64 = "x86_64", arm64 = "aarch64", x86_64 = "x86_64", aarch64 = "aarch64" }
-M.OS_MAP = {
-    darwin = "apple-darwin",
-    linux = "unknown-linux-gnu",
-    windows = "pc-windows-msvc",
-}
---- Returns the Artifactory platform triple for the current machine.
---- e.g. "x86_64-unknown-linux-gnu" or "aarch64-apple-darwin"
----@return string
-function M.get_platform_triple()
-    local os_name = RUNTIME.osType:lower()
-    local arch = RUNTIME.archType
-    local mapped_arch = M.ARCH_MAP[arch] or arch
-    local mapped_os = M.OS_MAP[os_name]
-    if not mapped_os then
-        Utils.fatal("Unsupported OS", { os = os_name })
-    end
-    return mapped_arch .. "-" .. mapped_os
-end
-
 ---@return string? Output
 function M.get_mise_tool_prefix(tool)
     local handle = io.popen(string.format("mise which %s 2>/dev/null", tool))

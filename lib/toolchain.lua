@@ -1,55 +1,85 @@
 ---@class ZephyrTool
 local M = {}
 
-TOOLCHAIN_BUNDLES_BASE_URL =
-    Utils.fs.join_path("https://api.github.com", "repos", "zephyrproject-rtos", "sdk-ng", "releases")
+GITHUB_USER = "zephyrproject-rtos"
+GITHUB_REPO = "sdk-ng"
 
-local MIN_VERSION = "3.0.0"
-local MAX_VERSION = "3.2.1"
+---@class GhListReleasesPayload
+---@field name string
+---@field tag_name string
+---@field draft boolean
+---@field prerelease boolean
+
+---@class GhAssetPayload
+---@field name string
+---@field id string
+---@field checksum string
+---@field download_url string
+--[[
+-- Example JSON:
+     "tag_name": "v1.0.1",
+     "name": "Zephyr SDK 1.0.1",
+     "draft": false,
+     "prerelease": false,
+     "assets": [
+       {
+         "url": "https://api.github.com/repos/zephyrproject-rtos/sdk-ng/releases/assets/381890506",
+         "id": 381890506,
+         "name": "hosttools_linux-aarch64.tar.xz",
+         "digest": "sha256:c08e11efa5076b8e5a80e15f1923fdec4d87894259cee48ce85693dcb90dfb01",
+          ...
+       },
+       ...
+--]]
+--- Can be used  to list all  releases and then be filtered by the tag. Look at the assets array property (in jq '.assets | select')
+--- gh api \
+--  -H "Accept: application/vnd.github+json" \
+--  -H "X-GitHub-Api-Version: 2026-03-10" \
+--  /repos/zephyrproject-rtos/sdk-ng/releases/tags/v1.0.0 --jq '.assets[] | select(.name | endswith("arm-zephyr-eabi.tar.xz")) | .name as $key | { $key : .url }'
+--- The asset download URL can also be found inside the assets.
+---
+TOOLCHAIN_RELEASES_BASE_URL =
+    Utils.fs.join_path("https://api.github.com", "repos", GITHUB_USER, GITHUB_REPO, "releases")
+
+TOOLCHAIN_DOWNLOADS_BASE_URL = Utils.fs.join_path(TOOLCHAIN_RELEASES_BASE_URL, "downloads")
+TOOLCHAIN_ASSETS_BASE_URL = Utils.fs.join_path(TOOLCHAIN_RELEASES_BASE_URL, "assets")
+local MIN_VERSION = "0.17.0"
 ---@class ToolchainBundle
+---@field  name string
 ---@field  version string
 ---@field checksum string
 ---@field download_url string
----[[
 ---
---- curl -s https://files.nordicsemi.com/artifactory/ZephyrSDK/external/bundles/v3/index-linux-x86_64.json | jq '[ .[] | select(.json_api_version == 2) | .key as $version | .metadata as $meta | { $version : { hash: $meta.version , url: $meta.filename } } ]'
----]]--
---- Returns the nrfutil launcher download URL for the current
----@param toolchain_name string
----@param version string
----@return ToolchainBundle[]?
-local function get_toolchain_bundle_index(toolchain_name, version)
-    local os_name = Utils.sh.get_os()
-    local arch = RUNTIME.archType
-    local key = os_name .. "-" .. arch
-    if os_name == "darwin" then
-        key = "darwin"
-    end
 
-    local url = Utils.fs.join_path(
-        TOOLCHAIN_BUNDLES_BASE_URL,
-        string.format("zephyr-sdk-%s_%s-%s_%s.%s", version, os_name, arch, toolchain_name)
-    )
-    -- macOS uses a universal binary
-    Utils.inf("URL: ", { url = url })
+M.cache = {}
+
+--- @param tool string
+--- @param version string
+--- @param install_path string
+--- @param downloads_dir string
+M.get_assets_for_toolchain = function(tool, version, install_path, downloads_dir)
+    Utils.validate("tool", tool, "string")
+    Utils.validate("version", version, "string")
+    Utils.validate("install_path", install_path, "string")
+    Utils.validate("downloads_dir", downloads_dir, "string")
+
+    Utils.inf("Getting asset for tool with version", { tool = tool, version = version })
+    local tag = version:gsub("^([%d%.]+)$", "v%1") or version
+    local extmap = {
+        ["windows"] = ".7z",
+        ["macos"] = ".tar.xz",
+        ["linux"] = ".tar.xz",
+    }
+
+    Utils.net.platform_idents({ ext = extmap })
+    local asset_pattern = Utils.net.platform_create_string("zephyr-sdk-{version}_{osname}-{arch}_minimal{ext}")
+    local url = Utils.fs.join_path(TOOLCHAIN_RELEASES_BASE_URL, tag, asset_pattern)
+    Utils.inf("URL: ", { url = TOOLCHAIN_RELEASES_BASE_URL })
     if not url then
-        Utils.wrn("Unsupported platform for nrfutil", { platform = key })
+        Utils.wrn("Unsupported platform for nrfutil", { platform = asset_pattern })
         return nil
     end
-    -- try_get: returns (resp, nil) on success, (nil, err_string) on failure
-    local bundles = Utils.net.get_json_payload(url, function(bundle)
-        if bundle["json_api_version"] and bundle["json_api_version"] == 2 then
-            local version = bundle["key"] or ""
-            local semver = version:match("v(%d%.%d%.%d)$")
-            if semver then
-                return (
-                    Utils.semver.compare(semver, MIN_VERSION) >= 0
-                    and Utils.semver.compare(semver, MAX_VERSION) <= 0
-                )
-            end
-        end
-        return false
-    end)
+    local bundles = Utils.net.archived_asset_download(url, install_path, downloads_dir)
 
     if #bundles == 0 then
         Utils.wrn("JSON payload did not have any content", { bundles = bundles })
@@ -57,7 +87,7 @@ local function get_toolchain_bundle_index(toolchain_name, version)
     end
     return Utils.tbl_map(function(release)
         local meta = release.metadata or {}
-        local download_url = (meta.filename ~= nil) and Utils.fs.join_path(TOOLCHAIN_BUNDLES_BASE_URL, meta.filename)
+        local download_url = (meta.filename ~= nil) and Utils.fs.join_path(TOOLCHAIN_DOWNLOADS_BASE_URL, meta.filename)
             or ""
         local bundle = {
             version = release.key or "",
@@ -68,78 +98,106 @@ local function get_toolchain_bundle_index(toolchain_name, version)
     end, bundles)
 end
 
----@param bundles ToolchainBundle[]
-local function store_bundle_info(bundles)
-    -- Run the Poetry installer via bash script
-    local json = require("json")
-    local ok, encoded = pcall(json.encode, bundles)
-    if not ok then
-        error("Failed to encode bundles")
-    end
-    -- Write and execute the script
-    local bundle_json = Utils.fs.join_path(RUNTIME.pluginDirPath, "toolchain_bundles.json")
-    local f = io.open(bundle_json, "w")
-    if not f then
-        error("Failed to create installation script")
-    end
-    f:write(encoded)
-    f:close()
-end
+local STORE_KEYS = {
+    ["toolchain"] = "minimal_toolchain",
+}
+---@return string[] versions
+M.list_versions = function()
+    local semver = require("semver")
+    local result = Utils.net.get_json_payload(
+        TOOLCHAIN_RELEASES_BASE_URL,
+        ---@param release GhListReleasesPayload
+        ---@return boolean
+        function(release)
+            local version = release.tag_name:gsub("^v", "")
+            local is_not_official = version:match("-([%w%d]+)$")
+            if is_not_official or release.prerelease or release.draft then
+                return false
+            end
+            if semver.compare(version, MIN_VERSION) < 0 then
+                return false
+            end
+            return true
+        end
+    )
 
----@return table
-local function read_bundle_info()
-    -- Run the Poetry installer via bash script
-    local json = require("json")
-    -- Write and execute the script
-    local bundle_json = Utils.fs.join_path(RUNTIME.pluginDirPath, "toolchain_bundles.json")
-    local bundle_content = Utils.file.read(bundle_json)
-    local ok, decoded = pcall(json.decode, bundle_content)
-    if not ok then
-        error("Failed to decode bundles")
+    if type(result) ~= "table" or #result == 0 then
+        Utils.fatal("JSON payload did not have any content", result)
     end
-    return decoded
-end
----@alias BundleCache table<string, ToolchainBundle>
-BundleCache = {}
-
-function M.list_versions()
-    local bundles = get_toolchain_bundle_index()
-    if not bundles then
-        return {}
-    end
+    local toolchain_assets = {} ---@type table<string,{minimal_assets: table<string, ToolchainBundle>}>
     local versions = {}
-    for _, bundle in ipairs(bundles) do
-        BundleCache[bundle.version] = bundle
-        versions[#versions + 1] = bundle.version
-    end
+    for _, release in ipairs(result) do
+        local version = release.tag_name:gsub("^v", "")
+        local assets = release.assets or {}
+        local minimal_assets_for_tag = {} ---@type table<string, ToolchainBundle>
+        for _, asset in ipairs(assets) do
+            if asset.name ~= nil and Utils.strings.contains(asset.name, "minimal") then
+                local osname, plat = asset.name:match(".*_(%w+)%-([%w_]+)_minimal.*$")
 
-    store_bundle_info(BundleCache)
-    Utils.inf("Bundles", { bundles = bundles })
-    return {
-        versions = versions,
-    }
+                if osname == nil then
+                    Utils.fatal("NO PLATFORM IDENTIFIER: ", { asset = asset })
+                    error("")
+                end
+                minimal_assets_for_tag[osname] = Utils.tbl_extend("error", minimal_assets_for_tag[osname] or {}, {
+                    [plat] = {
+                        name = asset.name,
+                        version = version,
+                        download_url = asset.browser_download_url or asset.url,
+                        checksum = asset.digest,
+                    },
+                })
+            end
+        end
+        versions[#versions + 1] = version
+        toolchain_assets[version] = {
+            minimal_assets = minimal_assets_for_tag,
+        }
+    end
+    Utils.inf("Toolchain bundles collected: ", { assets = toolchain_assets, versions = versions })
+    Utils.store.store_table(toolchain_assets, "minimal_toolchains")
+    return versions
 end
+
 --- Installs a specific version of nrfutil (launcher + pinned core module).
 --- Layout: install_path/bin/nrfutil, install_path/home/, install_path/download/
 ---@param version string The mise-provided install path
 ---@param install_path string The mise-provided install path
 ---@param download_path string The mise-provided install path
 function M.install(version, install_path, download_path)
-    local bundles = read_bundle_info()
+    local assets = Utils.store.read_table("minimal_toolchains") ---@type table<string,{minimal_assets: table<string, ToolchainBundle>}>
 
-    if not bundles then
-        Utils.err("Could not get bundle cache", { version = version, cache = BundleCache })
+    if not assets then
+        Utils.err("Could not get asset store")
         return nil
     end
 
-    local bundle = bundles[version]
-    if not bundle then
-        Utils.err("Could not find bundle in cache", { version = version, cache = BundleCache })
+    local asset_for_version = assets[version]
+
+    if not asset_for_version or not asset_for_version.minimal_assets then
+        Utils.err("Could not find asset in store for version", { version = version, assets = assets })
+        return nil
+    end
+    local minimal_assets = asset_for_version.minimal_assets
+    local osname = Utils.os()
+    local arch = Utils.arch()
+    local asset = (minimal_assets[osname] or {})[arch]
+
+    if not asset then
+        Utils.err(
+            "Could not find asset in store for version",
+            { osname = osname, platform = arch, assets = minimal_assets }
+        )
         return nil
     end
     -- 1. Download the launcher executable
-    Utils.inf("Downloading nrfutil launcher", { bundle = bundle })
-    local res = Utils.net.archived_asset_download(bundle.download_url, install_path, download_path, bundle.checksum)
+    Utils.inf("Downloading nrfutil launcher", { asset = asset })
+    local ext = (osname == "windows") and ".7z" or ".tar.xz"
+    local res = Utils.net.archived_asset_download(
+        asset.download_url,
+        install_path,
+        download_path,
+        { name = string.format("zephyr-sdk-%s", version), ext = ext }
+    )
 
     -- 2. Download the versioned core module tarball
     -- 3. Bootstrap: pin core version via tarball path, run nrfutil to trigger install

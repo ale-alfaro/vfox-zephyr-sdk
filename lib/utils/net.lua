@@ -122,23 +122,20 @@ end
 ---@param url string
 ---@param install_dir string
 ---@param download_dir string
----@param asset_name? string
+---@param asset_opts? {name:string,ext:string}
 ---@return string?
-function M.archived_asset_download(url, install_dir, download_dir, asset_name)
+function M.archived_asset_download(url, install_dir, download_dir, asset_opts)
     Utils.validate("url", url, "string")
     Utils.validate("install_dir", install_dir, "string")
     Utils.validate("download_dir", download_dir, "string")
-    Utils.validate("asset_name", asset_name, "string", true)
+    Utils.validate("asset_name", asset_opts, "table", true)
     local archiver = require("archiver")
-    asset_name = asset_name or url:match(".*/(%S+)$")
+    asset_opts = asset_opts or {}
+    local archive_name = url:match(".*/(%S+)$")
+    local archive_ext = asset_opts.ext or get_platform_archive_suffix()
+    local asset_name = asset_opts.name or archive_name:gsub(archive_ext, "")
     -- try_download_file: returns (true, nil) on success, (nil, err_string) on failure
-    local archive_ext = get_platform_archive_suffix()
-    local packaged_asset_name = asset_name
-    if not Utils.strings.has_suffix(packaged_asset_name, archive_ext) then
-        local extensionless = asset_name:match("(%S+).%.*")
-        packaged_asset_name = extensionless .. archive_ext
-    end
-    local packaged_asset = Utils.fs.join_path(download_dir, packaged_asset_name)
+    local packaged_asset = Utils.fs.join_path(download_dir, archive_name)
     local asset = Utils.fs.join_path(install_dir, asset_name)
     local _ok, err = M.http.try_download_file({
         url = url,
