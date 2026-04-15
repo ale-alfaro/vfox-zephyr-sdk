@@ -189,7 +189,7 @@ function M.install(ctx)
         return nil
     end
     local minimal_assets = asset_for_version.minimal_assets
-    local osname = Utils.os()
+    local osname = sdk_osname()
     local arch = Utils.arch()
     local asset = (minimal_assets[osname] or {})[arch]
 
