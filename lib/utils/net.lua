@@ -100,7 +100,7 @@ local function gh_api(repo, components, opts)
     Utils.validate("reqType", opts.reqType, function(req)
         return req == "GET" or req == "DOWNLOAD"
     end)
-    local gh_token = os.getenv("GITHUB_TOKEN") or ""
+    local gh_token = os.getenv("GITHUB_TOKEN") or os.getenv("MISE_GITHUB_TOKEN") or ""
     local application_header = opts.reqType == "GET" and "application/vnd.github+json" or "application/octet-stream"
     local headers = {
         ["Accept"] = application_header,
@@ -108,7 +108,7 @@ local function gh_api(repo, components, opts)
         ["User-Agent"] = "mise-plugin",
     }
     if gh_token ~= "" then
-        headers["Authorization"] = string.format("Bearer: %s", gh_token)
+        headers["Authorization"] = string.format("Bearer %s", gh_token)
     end
     local url = Utils.fs.join_path(GITHUB_REPOS_URL, repo, components)
     return {
