@@ -30,10 +30,10 @@ jobs:
             description = "Tests"
             run = '''
             echo "Link!"
-            mise plugins ln "${BACKEND:?}" .
+            mise plugins ln zephyr-sdk .
             echo "ls-remote!"
-            mise ls-remote "${BACKEND}:toolchain@${BACKEND_VERSION}"
-            mise ls-remote "${BACKEND}:west@${BACKEND_VERSION}"
+            mise ls-remote "zephyr-sdk:toolchain@${BACKEND_VERSION}"
+            mise ls-remote "zephyr-sdk:west@${BACKEND_VERSION}"
             echo "Exec!"
             mise x "zephyr-sdk:toolchain[toolchains='arm-zephyr-eabi']@${BACKEND_VERSION:?}" -- arm-zephyr-eabi-gcc --version
             mise x "zephyr-sdk:west@latest${BACKEND_VERSION:?}" -- west --version
