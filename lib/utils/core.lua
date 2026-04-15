@@ -1,5 +1,5 @@
 ---@nodoc
-_G.Utils = _G.Utils or {} --[[@as table]]
+_G.Utils = _G.Utils or {} --[[@as Utils]]
 
 --- Returns the current OS name lowercased.
 ---@return string
@@ -552,25 +552,6 @@ function Utils.islist(t)
         end
     end
     return true
-end
-
---- Sorted pairs iterator. Iterates over keys in sorted order.
----@param t table
----@return fun():any, any
-function Utils.spairs(t)
-    local keys = {}
-    for k in pairs(t) do
-        keys[#keys + 1] = k
-    end
-    table.sort(keys)
-    local i = 0
-    return function()
-        i = i + 1
-        local k = keys[i]
-        if k ~= nil then
-            return k, t[k]
-        end
-    end
 end
 
 --- Split a version string into numeric parts

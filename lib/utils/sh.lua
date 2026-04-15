@@ -20,10 +20,6 @@ function M.get_mise_tool_prefix(tool)
     end
     return nil
 end
----@class ShCmdExecOpts : CmdExecOpts
----@field fail? boolean If true a failure in the command exec will error out
----@field output_lines? boolean If true a failure in the command exec will error out
-
 ---@param exec_cmd string|string[]
 ---@param opts ShCmdExecOpts?
 ---@return string? Output

@@ -28,40 +28,6 @@ local function sdk_osname()
     return os_name_map[Utils.os()] or Utils.os()
 end
 
---- @param tool string
---- @param version string
---- @param install_path string
---- @param downloads_dir string
-M.get_assets_for_toolchain = function(tool, version, install_path, downloads_dir)
-    Utils.validate("tool", tool, "string")
-    Utils.validate("version", version, "string")
-    Utils.validate("install_path", install_path, "string")
-    Utils.validate("downloads_dir", downloads_dir, "string")
-
-    Utils.inf("Getting asset for tool with version", { tool = tool, version = version })
-    local tag = version:gsub("^([%d%.]+)$", "v%1") or version
-    local extmap = {
-        ["windows"] = ".7z",
-        ["macos"] = ".tar.xz",
-        ["linux"] = ".tar.xz",
-    }
-
-    Utils.net.platform_idents({ ext = extmap })
-    local asset_pattern = Utils.net.platform_create_string("zephyr-sdk-{version}_{osname}-{arch}_minimal{ext}")
-    local url = Utils.fs.join_path(RELEASES_API_URL, tag, asset_pattern)
-    Utils.inf("URL: ", { url = RELEASES_API_URL })
-    if not url then
-        Utils.wrn("Unsupported platform for nrfutil", { platform = asset_pattern })
-        return nil
-    end
-    local bundles = Utils.net.github_asset_download(GITHUB_REPO, url, install_path, downloads_dir)
-
-    if #bundles == 0 then
-        Utils.wrn("JSON payload did not have any content", { bundles = bundles })
-        return nil
-    end
-end
-
 --- Map runtime OS name to Zephyr SDK naming convention
 ---@return string[] versions
 M.list_versions = function()

@@ -24,6 +24,7 @@
 ---| '"LLVM"'
 ---| '"HOST"'
 ---
+---
 ---@alias AssetMap table<ZephyrSdkOsType, table<ZephyrSdkArchType, ZephyrSdkAsset>> Release assets
 ---@class ZephyrSdkReleaseCache
 ---@field releases? table<Version, ZephyrSdkRelease>
@@ -113,10 +114,41 @@ RUNTIME = {}
 ---@field MisePath? fun(self: Plugin, ctx: MisePathCtx): string[]
 PLUGIN = {}
 
+--- @alias MergeTableBehaviorPolicy
+---|'error'  raise an error
+---|'keep'   use value from the leftmost map
+---|'force'  use value from the rightmost map
+
+---@comment If a function, it receives the current key, the previous value in the currently merged table (if present), the current value and should
+---return the value for the given key in the merged table.
+---@alias MergeTableBehavior MergeTableBehavior|fun(key:any, prev_value:any?, value:any):any
 ------------------------------------------------------------------------
 -- Built-in modules (available via require)
 ------------------------------------------------------------------------
-
+---@class Utils
+--- Submodules (mise built-in, loaded lazily via __index)
+---@field strings strings
+---@field semver semver
+---@field file file
+---@field http Utils.http
+---@field cmd cmd
+---@field json json
+--- Submodules (custom, loaded lazily via __index)
+---@field fs Utils.fs
+---@field sh Utils.sh
+---@field net Utils.net
+---@field store Utils.store
+---@field inspect fun(root: any, options?: table): string
+--- Core utility functions
+---@field inf fun(...: any) Log at info level
+---@field wrn fun(...: any) Log at warn level
+---@field err fun(...: any) Log at error level
+---@field dbg fun(...: any) Log at debug level
+---@field islist fun(t: table): boolean
+---@field tbl_extend fun(behavior: MergeTableBehavior, ...: table<any,any>): table
+---@field tbl_map fun(fn: fun(value: any): any, t: table): table
+---@field tbl_deep_extend fun(behavior: MergeTableBehavior, ...: table<any,any>): table
+Utils = {}
 -- http module --------------------------------------------------------
 
 ---@class HttpRequestOpts
@@ -128,21 +160,33 @@ PLUGIN = {}
 ---@field headers table<string, string> Response headers
 ---@field body string Response body (only for get, not head)
 
----@class http
+---@class Utils.http
 ---@field get fun(opts: HttpRequestOpts): HttpResponse, string? Send a GET request
 ---@field head fun(opts: HttpRequestOpts): HttpResponse, string? Send a HEAD request (no body)
 ---@field download_file fun(opts: HttpRequestOpts, path: string): string? Download a file to disk
 ---@field try_get fun(opts: HttpRequestOpts): HttpResponse?, string? Non-raising GET request
 ---@field try_head fun(opts: HttpRequestOpts): HttpResponse?, string? Non-raising HEAD request
 ---@field try_download_file fun(opts: HttpRequestOpts, path: string): boolean?, string? Non-raising download
-local http = {}
+Utils.http = {}
+
+-- net module (extends http) ------------------------------------------
+
+---@class Utils.net : Utils.http
+---@field platform_idents fun(overrides?: PlatformInfo): PlatformInfo Get OS/arch identifiers
+---@field platform_create_string fun(template: string, exttype?: string): string Substitute platform placeholders
+---@field github_asset_download fun(repo: string, asset_id: string, install_path: string, download_path: string): string Download GitHub release asset
+---@field github_fetch_releases fun(repo: string, min_version: string): table Fetch filtered releases from GitHub
+---@field archived_asset_download fun(url: string, install_dir: string, download_dir: string, asset_opts?: table): string? Download and extract archive
+---@field executable_asset_download fun(url: string, install_dir: string, exe_name?: string): string? Download executable
+---@field get_json_payload fun(request: string|HttpRequestOpts, filter_fn?: function, key_to_filter?: string): table? Fetch and parse JSON
+Utils.net = {}
 
 -- json module --------------------------------------------------------
 
 ---@class json
 ---@field encode fun(value: any): string Encode a value as JSON
 ---@field decode fun(str: string): any Decode a JSON string
-local json = {}
+Utils.json = {}
 
 -- file module --------------------------------------------------------
 
@@ -151,7 +195,19 @@ local json = {}
 ---@field exists fun(path: string): boolean Check if a file exists
 ---@field symlink fun(src: string, dst: string) Create a symbolic link
 ---@field join_path fun(...: string): string Join path components
-local file = {}
+
+---@class Utils.fs : file
+---@field parents fun(start: string): fun(): string? Walk up directory tree
+---@field fs_realpath fun(path: string): string? Resolve real path
+---@field directory_exists fun(path: string): boolean Check if directory exists
+---@field scandir fun(directory: string, opts?: ScanDirOpts): string[] List files in directory
+---@field basename fun(file: string): string Get filename from path
+---@field dirname fun(file: string): string Get parent directory from path
+---@field path_exists fun(path: string, opts?: PathExistsOpts): boolean Check path existence
+---@field Path fun(components: string|string[], opts?: PathOpts): string? Join and validate path
+---@field normalize fun(path: string, opts?: table): string Normalize path
+---@field abspath fun(path: string): string Convert to absolute path
+Utils.fs = {}
 
 -- cmd module ---------------------------------------------------------
 
@@ -160,9 +216,18 @@ local file = {}
 ---@field env? table<string, string> Environment variables
 ---@field timeout? integer Timeout in milliseconds
 
+---@class SafeCmdExecOpts : CmdExecOpts
+---@field fail? boolean If true a failure in the command exec will error out
+---@field output_lines? boolean If true a failure in the command exec will error out
+
 ---@class cmd
 ---@field exec fun(command: string, opts?: CmdExecOpts): string Execute a shell command
-local cmd = {}
+---@field safe_exec fun(command: string|string[], opts?: SafeCmdExecOpts): string Execute a shell command
+
+---@class Utils.sh : cmd
+---@field get_mise_tool_prefix fun(tool: string): string? Get exe dir for a mise tool
+---@field has_cmd fun(exe: string): string? Check if command exists in PATH
+Utils.sh = {}
 
 -- env module ---------------------------------------------------------
 
@@ -177,6 +242,14 @@ local env = {}
 ---@field decompress fun(archive: string, dest: string): string? Decompress an archive (.zip, .tar.gz, .tar.xz, .tar.bz2)
 local archiver = {}
 
+-- store module -------------------------------------------------------
+
+---@class Utils.store
+---@field store_exists fun(store_name: string): boolean Check if JSON store exists
+---@field store_table fun(data: table, store_name: string): string? Write table to JSON store
+---@field read_table fun(store_name: string): table? Read table from JSON store
+Utils.store = {}
+
 -- semver module ------------------------------------------------------
 
 ---@class semver
@@ -184,7 +257,7 @@ local archiver = {}
 ---@field parse fun(version: string): integer[] Parse a version string into numeric parts
 ---@field sort fun(versions: string[]): string[] Sort version strings in ascending order
 ---@field sort_by fun(arr: table[], field: string): table[] Sort tables by a version field
-local semver = {}
+Utils.semver = {}
 
 -- strings module -----------------------------------------------------
 
@@ -196,7 +269,7 @@ local semver = {}
 ---@field trim_space fun(s: string): string Trim whitespace from both ends
 ---@field contains fun(s: string, substr: string): boolean Check if string contains substring
 ---@field join fun(arr: any[], sep: string): string Join array elements with separator
-local strings = {}
+Utils.strings = {}
 
 -- html module --------------------------------------------------------
 
