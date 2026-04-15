@@ -30,22 +30,32 @@
 ---@field version string Version string (e.g. "0.17.0")
 ---@field url string Download URL
 ---@field name string Asset filename
----
+
 ---@alias ZephyrSdkToolchainType
----| '"ZEPHYR"' # Pre release v1.0.0 this is the only choice aside from host tools
----| '"GNU"'    # Post-release v1.0.0 this is the default
----| '"LLVM"'   # Second toolchain type
----| '"HOST"'   # Not a toolchain but can be installed as a tool standalone
----
+---| '"ZEPHYR"'
+---| '"GNU"'
+---| '"LLVM"'
+---| '"HOST"'
+
 ---@class ZephyrSdkTool
 ---@field version string Version string (e.g. "0.17.0")
 ---@field zephyr_install_path string
 ---@field mise_install_path string
 ---@field extra? table
----
+
 ---@class ZephyrSdkInfo
 ---@field version string Version to install
 ---@field installDir string Path where the root of toolchain should be installed
+
+------------------------------------------------------------------------
+-- ZephyrSDK specific types
+------------------------------------------------------------------------
+
+---@class ZephyrTool
+---@field list_versions? fun(): string[]
+---@field install fun(ctx: BackendInstallCtx): nil
+---@field envs fun(ctx: BackendExecEnvCtx): table<string,string>
+
 ------------------------------------------------------------------------
 -- Globals
 ------------------------------------------------------------------------

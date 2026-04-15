@@ -5,7 +5,7 @@
 --- @return BackendExecEnvResult
 function PLUGIN:BackendExecEnv(ctx)
     require("utils")
-    local zephyr_sdk = require("zephyr_sdk")
+    local zephyr_sdk = require("minmal_zephyr_sdk")
     local semver = require("semver")
     local zephyr_sdk_root = zephyr_sdk.get_zephyr_sdk_home() -- this is ~/zephyr-sdk-root
     local zephyr_sdk_install_dir = Utils.fs.join_path(zephyr_sdk_root, "zephyr-sdk-" .. ctx.version) -- ~/zephyr_sdk_root/zephyr-sdk-<VERSION>

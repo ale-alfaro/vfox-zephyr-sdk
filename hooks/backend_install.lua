@@ -39,7 +39,7 @@ function PLUGIN:BackendInstall(ctx)
     -- ── Install toolchains and hosttools via setup.sh ───────────────────
     require("utils")
     local semver = require("semver")
-    local zephyr_sdk = require("zephyr_sdk")
+    local zephyr_sdk = require("minmal_zephyr_sdk")
     local zephyr_sdk_home = zephyr_sdk.get_zephyr_sdk_home()
     local zephyr_sdk_install_dir = Utils.fs.join_path(zephyr_sdk_home, "zephyr-sdk-" .. ctx.version)
     local env = require("env")

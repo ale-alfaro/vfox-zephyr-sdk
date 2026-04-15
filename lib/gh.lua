@@ -1,4 +1,15 @@
 local M = {}
+
+GITHUB_USER = "zephyrproject-rtos"
+GITHUB_REPO = "sdk-ng"
+TOOLCHAIN_RELEASES_BASE_URL =
+    Utils.fs.join_path("https://api.github.com", "repos", GITHUB_USER, GITHUB_REPO, "releases")
+
+TOOLCHAIN_DOWNLOADS_BASE_URL = Utils.fs.join_path(TOOLCHAIN_RELEASES_BASE_URL, "downloads")
+TOOLCHAIN_ASSETS_BASE_URL = Utils.fs.join_path(TOOLCHAIN_RELEASES_BASE_URL, "assets")
+local MIN_VERSION = "3.0.0"
+local MAX_VERSION = "3.2.1"
+---
 ---@class GhListReleasesPayload
 ---@field name string
 ---@field tag_name string
@@ -27,145 +38,6 @@ local M = {}
        ...
 --]]
 
-GITHUB_USER = "zephyrproject-rtos"
-GITHUB_REPO = "sdk-ng"
-MIN_VERSION = "0.17.0"
-local strings = require("strings")
-GITHUB_API_URL = strings.join({ "https://api.github.com", "repos", GITHUB_USER, GITHUB_REPO }, "/")
---
----@alias GhApiRequestType
----| 'GET'
----| 'DOWNLOAD'
-
----@class GhApiOpts
----@field reqType GhApiRequestType
-
---- @param components string[]
---- @param opts GhApiOpts
----@return HttpRequestOpts
-local function gh_api(components, opts)
-    Utils.validate("components", components, Utils.islist)
-    Utils.validate("opts", opts, "table")
-    Utils.validate("reqType", opts.reqType, function(req)
-        return req == "GET" or req == "DOWNLOAD"
-    end)
-    -- local sh = require("utils.sh")
-    local application_header = opts.reqType == "GET" and "application/json" or "application/octet-stream"
-    local headers = {
-        ["Accept"] = application_header,
-        ["X-GitHub-Api-Version"] = "2022-11-28",
-    }
-
-    -- if GITHUB_TOKEN then
-    --     CACHED_GH_TOKEN = GITHUB_TOKEN or assert(sh.safe_exec({ "gh", "auth", "token" }, { fail = true }))
-    --
-    --     if not CACHED_GH_TOKEN:find("^gh[op]_") then
-    --         Utils.wrn("Invalid token")
-    --         CACHED_GH_TOKEN = nil
-    --     end
-    -- end
-    -- if CACHED_GH_TOKEN then
-    --     headers["Authorization"] = "Bearer " .. CACHED_GH_TOKEN
-    -- end
-    return {
-        url = strings.join({ GITHUB_API_URL, unpack(components) }, "/"),
-        headers = headers,
-    }
-end
-
----@param asset_id string
----@param archive_path string
-local function gh_api_download_asset(asset_id, archive_path)
-    Utils.validate("asset_id", asset_id, "string")
-    Utils.validate("archive_path", archive_path, "string")
-
-    local http = require("http")
-    local err = http.download_file(gh_api({ "releases", "assets", asset_id }, { reqType = "DOWNLOAD" }), archive_path)
-    if err ~= nil then
-        Utils.fatal("Download failed: " .. err)
-    end
-end
-
----@param asset_id string
----@param install_path string
----@param download_path string
-local function asset_download(asset_id, install_path, download_path)
-    Utils.validate("asset_id", asset_id, "string")
-    Utils.validate("install_path", install_path, "string")
-    Utils.validate("download_path", download_path, "string")
-    local archiver = require("archiver")
-    gh_api_download_asset(asset_id, download_path)
-    -- ── Extract archive ─────────────────────────────────────────────────
-    Utils.inf("Extracting archive to install path", { download_path = download_path, install_path = install_path })
-    local err = archiver.decompress(download_path, install_path)
-    if err ~= nil then
-        Utils.fatal("Extraction failed (" .. download_path .. "): " .. err)
-    end
-end
-
---- Downloads a file and raises on failure.
----@param url string[]
----@param filter_fn? fun(table):boolean?
----@param key_to_filter? string
----@return table
-local function get_json_payload(url, filter_fn, key_to_filter)
-    Utils.validate("url", url, Utils.islist)
-    Utils.validate("filter_fn", filter_fn, "function", true)
-    Utils.validate("key_to_filter", key_to_filter, "string", true)
-    local http = require("http")
-    local json = require("json")
-
-    local resp, err = http.get(gh_api(url, { reqType = "GET" }))
-
-    if err ~= nil then
-        Utils.fatal("Failed to do to HTTP GET: " .. err)
-    end
-    if resp.status_code ~= 200 then
-        Utils.fatal("GitHub API returned status " .. resp.status_code .. ": " .. resp.body)
-    end
-
-    local success, result = pcall(json.decode, resp.body)
-    if not success then
-        Utils.fatal("Failed to parse JSON: " .. result)
-    end
-    if not filter_fn then
-        return result
-    end
-    local filterable_result = key_to_filter and result[key_to_filter] or result
-    return Utils.tbl_filter(filter_fn, filterable_result)
-end
----@return string
-local function get_platform_component()
-    local os_name = RUNTIME.osType:lower()
-    local arch = RUNTIME.archType
-
-    local platform_map = {
-        ["darwin"] = {
-            ["arm64"] = "macos-aarch64",
-        },
-        ["linux"] = {
-            ["amd64"] = "linux-x86_64",
-            ["arm64"] = "linux-aarch64",
-        },
-        ["windows"] = {
-            ["amd64"] = "windows-x86_64",
-        },
-    }
-
-    local os_map = platform_map[os_name]
-    if os_map then
-        return os_map[arch] or "linux-x86_64" -- fallback
-    end
-
-    -- Default fallback
-    return "linux-x86_64"
-end
----@return string
-local function get_platform_archive_extension()
-    local ext = RUNTIME.osType:lower() == "windows" and "7z" or "tar.xz"
-    return ext
-end
-
 --- @param tool string
 --- @param version string
 --- @param install_path string
@@ -178,43 +50,44 @@ M.get_asset_for_tool = function(tool, version, install_path, downloads_dir)
 
     Utils.inf("Getting asset for tool with version", { tool = tool, version = version })
     local tag = version:gsub("^([%d%.]+)$", "v%1") or version
-    local ext = "." .. get_platform_archive_extension()
-    local asset_pattern = table.concat({ get_platform_component(), tool .. ext }, "_")
+    local extmap = {
+        ["windows"] = ".7z",
+        ["macos"] = ".tar.xz",
+        ["linux"] = ".tar.xz",
+    }
 
-    Utils.inf("Release asset pattern", { tag = tag, asset_pattern = asset_pattern })
-    local result = get_json_payload({ "releases", "tags", tag }, function(asset)
-        if type(asset) ~= "table" or not asset["name"] then
-            return false
-        end
-        local asset_name = asset["name"]
-        return strings.has_suffix(asset_name, asset_pattern)
-    end, "assets")
-    if type(result) ~= "table" or #result == 0 then
-        Utils.fatal("JSON payload did not have any content", { result = result })
+    Utils.net.platform_idents({ ext = extmap })
+    local asset_pattern = Utils.net.platform_create_string("zephyr-sdk-{version}_{osname}-{arch}_minimal{ext}")
+    local url = Utils.fs.join_path(TOOLCHAIN_ASSETS_BASE_URL, tag, asset_pattern)
+    Utils.inf("URL: ", { url = url })
+    if not url then
+        Utils.wrn("Unsupported platform for nrfutil", { platform = key })
+        return nil
     end
+    -- try_get: returns (resp, nil) on success, (nil, err_string) on failure
+    local bundles = Utils.net.archived_asset_download(url, install_path, downloads_dir)
 
-    local assets = Utils.list_map(function(node)
-        return {
-            name = node.name,
-            id = node.id,
-            checksum = node.digest,
-            download_url = node.url,
+    if #bundles == 0 then
+        Utils.wrn("JSON payload did not have any content", { bundles = bundles })
+        return nil
+    end
+    return Utils.tbl_map(function(release)
+        local meta = release.metadata or {}
+        local download_url = (meta.filename ~= nil) and Utils.fs.join_path(TOOLCHAIN_BUNDLES_BASE_URL, meta.filename)
+            or ""
+        local bundle = {
+            version = release.key or "",
+            checksum = meta.version or "",
+            download_url = download_url,
         }
-    end, result)
-    Utils.inf("Assets: ", { assets = assets })
-    local asset = assets[1]
-    if type(asset) ~= "table" then
-        Utils.fatal("Found more than one possible asset")
-    end
-
-    local archive_path = Utils.file.join_path(downloads_dir, asset.name)
-    asset_download(tostring(asset.id), install_path, archive_path)
+        return bundle
+    end, bundles)
 end
 ---@return string[] versions
 M.fetch_releases = function()
     local semver = require("semver")
-    local result = get_json_payload(
-        { "releases" },
+    local result = Utils.net.get_json_payload(
+        TOOLCHAIN_RELEASES_BASE_URL,
         ---@param release GhListReleasesPayload
         ---@return boolean
         function(release)
