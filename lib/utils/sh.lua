@@ -1,15 +1,22 @@
 local M = require("cmd") ---@module 'cmd'
 
+local function get_mise_path()
+    local which_cmd = string.format("which mise 2>/dev/null")
+    local mise_path = M.exec(which_cmd)
+    if mise_path ~= "" then
+        return Utils.strings.trim_space(mise_path)
+    end
+    return Utils.fs.join_path(os.getenv("HOME") or "~", ".local", "bin", "mise")
+end
+
+---@param tool string
 ---@return string? Output
 function M.get_mise_tool_prefix(tool)
-    local handle = io.popen(string.format("mise which %s 2>/dev/null", tool))
-    if not handle then
-        return nil
-    end
-    local tool_path = handle:read("*l")
-    handle:close()
+    local which_cmd = string.format("%s which %s 2>/dev/null", get_mise_path(), tool)
+    local tool_path = M.exec(which_cmd)
 
     if not tool_path or tool_path == "" then
+        error("No tool path")
         return nil
     end
 
@@ -18,6 +25,7 @@ function M.get_mise_tool_prefix(tool)
     if bin_dir then
         return bin_dir
     end
+    error("tool path is not valid")
     return nil
 end
 ---@param exec_cmd string|string[]
