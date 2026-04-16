@@ -21,8 +21,8 @@ function M.get_mise_tool_prefix(tool)
     return nil
 end
 ---@param exec_cmd string|string[]
----@param opts ShCmdExecOpts?
----@return string? Output
+---@param opts SafeCmdExecOpts?
+---@return string|string[]|nil Output
 function M.safe_exec(exec_cmd, opts)
     Utils.validate("exec_cmd", exec_cmd, { "string", "table" }, "Exec cmd must be string or array")
     Utils.validate("opts", opts, "table", true)

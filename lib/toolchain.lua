@@ -20,56 +20,57 @@ M.LlvmToolchainTypes = {
     ["llvm"] = "llvm",
 }
 local GITHUB_REPO = "zephyrproject-rtos/sdk-ng"
-local RELEASES_API_URL = Utils.fs.join_path("https://api.github.com", "repos", GITHUB_REPO, "releases")
 
 local MIN_VERSION = "0.17.0"
-local os_name_map = { darwin = "macos" }
-local function sdk_osname()
-    return os_name_map[Utils.os()] or Utils.os()
-end
+local MAX_VERSION = "1.1.0"
+local STORE_KEY = "zephyr_minimal_toolchains"
 
+--- Fetch available SDK release versions from GitHub.
+--- Filters out pre-releases, drafts, and versions below MIN_VERSION.
+local github_fetch_releases = function() ---@as AssetBundleFetchFn
+    local request = Utils.net.gh_api(GITHUB_REPO, "releases", { reqType = "GET" })
+
+    local bundles = Utils.net.get_json_payload(request, function(bundle) ---@as ToolchainBundle[]?
+        if bundle["tag_name"] then
+            return Utils.semver.check_version(bundle.tag_name, {
+                version = { min = MIN_VERSION, max = MAX_VERSION },
+                prerelease = false,
+            })
+        end
+        return false
+    end)
+    if type(bundles) ~= "table" or #bundles == 0 then
+        error("JSON payload did not have any content ")
+    end
+    local releases = {} ---@as table<Version, ToolchainBundle>
+    local ext = (Utils.os() == "windows") and ".7z" or ".tar.xz"
+    local asset_pattern = Utils.platform_create_string("_{os}-{arch}_minimal{ext}", {
+        exttype = "archive",
+        override = {
+            ["{ext}"] = ext,
+        },
+    })
+    for _, release in ipairs(bundles) do
+        local version = release.tag_name:gsub("^v", "")
+        local assets = release.assets or {}
+        for _, asset in ipairs(assets) do
+            if asset.name ~= nil and Utils.strings.has_suffix(asset.name, asset_pattern) then
+                releases[version] = {
+                    name = asset.name,
+                    version = version,
+                    download_url = asset.browser_download_url or asset.url,
+                    checksum = asset.digest,
+                }
+            end
+        end
+    end
+    return releases
+end
 --- Map runtime OS name to Zephyr SDK naming convention
 ---@return string[] versions
 M.list_versions = function()
-    if Utils.store.store_exists("minimal_toolchains") then
-        Utils.inf("Store exists already, returning values stored there")
-        local assets = Utils.store.read_table("minimal_toolchains") ---@type ZephyrSdkAsset
-        if not assets then
-            Utils.fatal("Could not get asset store")
-        end
-        return Utils.tbl_keys(assets)
-    end
-    local result = Utils.net.github_fetch_releases(GITHUB_REPO, MIN_VERSION)
-    local toolchain_assets = {} ---@type ZephyrSdkReleaseCache
-    local versions = {}
-    for _, release in ipairs(result) do
-        local version = release.tag_name:gsub("^v", "")
-        local assets = release.assets or {}
-        local minimal_assets_for_tag = {} ---@type AssetMap
-        for _, asset in ipairs(assets) do
-            if asset.name ~= nil and Utils.strings.contains(asset.name, "minimal") then
-                local osname, plat = asset.name:match(".*_(%w+)%-([%w_]+)_minimal.*$")
-
-                if osname == nil then
-                    Utils.fatal("NO PLATFORM IDENTIFIER: ", { asset = asset })
-                    error("")
-                end
-                minimal_assets_for_tag[osname] = Utils.tbl_extend("error", minimal_assets_for_tag[osname] or {}, {
-                    [plat] = {
-                        name = asset.name,
-                        version = version,
-                        download_url = asset.browser_download_url or asset.url,
-                        checksum = asset.digest,
-                    },
-                })
-            end
-        end
-        versions[#versions + 1] = version
-        toolchain_assets[version] = { tag_name = release.tag_name, minimal_assets = minimal_assets_for_tag }
-    end
-    Utils.inf("Toolchain bundles collected: ", { assets = toolchain_assets, versions = versions })
-    Utils.store.store_table(toolchain_assets, "minimal_toolchains")
-    return versions
+    local versions = Utils.store.fetch_versions(STORE_KEY, github_fetch_releases)
+    return versions or {}
 end
 
 ---@class ToolchainSetupOpts
@@ -139,45 +140,27 @@ end
 --- Layout: install_path/bin/nrfutil, install_path/home/, install_path/download/
 ---@param ctx BackendInstallCtx The mise-provided install path
 function M.install(ctx)
+    Utils.validate("ctx", ctx, "table")
     local version, install_path, download_path = ctx.version, ctx.install_path, ctx.download_path
+    Utils.validate("version", version, "string")
+    Utils.validate("install_path", install_path, "string")
+    Utils.validate("download_path", download_path, "string")
     local opts = parse_toolchain_options(ctx.options, ctx.version)
-    local assets = Utils.store.read_table("minimal_toolchains") ---@type ZephyrSdkAsset
-
-    if not assets then
-        Utils.err("Could not get asset store")
-        return nil
-    end
-
-    local asset_for_version = assets[version]
-
-    if not asset_for_version or not asset_for_version.minimal_assets then
-        Utils.err("Could not find asset in store for version", { version = version, assets = assets })
-        return nil
-    end
-    local minimal_assets = asset_for_version.minimal_assets
-    local osname = sdk_osname()
-    local arch = Utils.arch()
-    local asset = (minimal_assets[osname] or {})[arch]
+    local asset = Utils.store.fetch_asset_bundles(STORE_KEY, version)
 
     if not asset then
-        Utils.err(
-            "Could not find asset in store for version",
-            { osname = osname, platform = arch, assets = minimal_assets }
-        )
-        return nil
+        Utils.fatal("Bundle not found for version and store key provided", { version = version, key = STORE_KEY })
+        error()
     end
 
     Utils.inf("Downloading minimal-zephyr-sdk", { asset = asset })
     version = version:gsub("^v", "")
-    local ext = (Utils.os() == "windows") and ".7z" or ".tar.xz"
-    local archive_name = string.format("zephyr-sdk-%s_%s-%s_minimal%s", version, sdk_osname(), Utils.arch(), ext)
-    local archive_path = Utils.fs.join_path(download_path, archive_name)
-    local _ok, err = Utils.net.http.try_download_file({ url = asset.download_url }, archive_path)
-    if err then
-        Utils.err("Download failed", { url = asset.download_url, err = err })
-        return nil
-    end
-    Utils.net.decompres_strip_components(archive_path, install_path, 1)
+    Utils.net.archived_asset_download(
+        asset.download_url,
+        install_path,
+        download_path,
+        { name = "zephr-sdk-" .. version, strip_components = 1 }
+    )
     if run_setup(install_path, opts) ~= 0 then
         Utils.err("Running setup cmd failed with error ")
     else
@@ -188,7 +171,10 @@ end
 ---@param ctx BackendExecEnvCtx
 ---@return EnvKey[] env_vars Array of {key, value} tables
 function M.envs(ctx) -- luacheck: no unused args
-    local zephyr_sdk_install_dir = ctx.install_path
+    Utils.validate("ctx", ctx, "table")
+    local version, zephyr_sdk_install_dir = ctx.version, ctx.install_path
+    Utils.validate("version", version, "string")
+    Utils.validate("zephyr_sdk_install_dir", zephyr_sdk_install_dir, "string")
     local opts = parse_toolchain_options(ctx.options, ctx.version)
     local toolchain_root = (opts.family ~= "zephyr") and Utils.fs.join_path(zephyr_sdk_install_dir, opts.family)
         or zephyr_sdk_install_dir

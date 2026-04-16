@@ -1,4 +1,5 @@
 ---@nodoc
+---@diagnostic disable-next-line: missing-fields
 _G.Utils = _G.Utils or {} --[[@as Utils]]
 
 --- Returns the current OS name lowercased.
@@ -10,6 +11,40 @@ end
 local arch_map = { amd64 = "x86_64", arm64 = "aarch64", x86_64 = "x86_64", aarch64 = "aarch64" }
 function Utils.arch()
     return arch_map[RUNTIME.archType]
+end
+---@return string
+local function get_platform_exe_suffix()
+    return RUNTIME.osType:lower() == "windows" and ".exe" or ""
+end
+
+local function get_platform_archive_suffix()
+    return RUNTIME.osType:lower() == "windows" and ".zip" or ".tar.gz"
+end
+
+local function lua_pattern_escape(value)
+    local str = tostring(value or "")
+    return str.gsub(str:gsub("([%.%(%)%[%]%%%^%$%*%+%-%?])", "%%%1"), "%%", "")
+end
+
+Utils.platform_create_string = function(template, opts)
+    template = lua_pattern_escape(template)
+    opts = opts or {}
+    local mappings = Utils.tbl_extend("force", {
+        ["{os}"] = Utils.os(),
+        ["{arch}"] = Utils.arch(),
+        ["{ext}"] = (opts.exttype == "archive") and get_platform_archive_suffix() or get_platform_exe_suffix(),
+    }, opts.override or {})
+    template = string.gsub(template, "({%w+})", mappings)
+    return template
+end
+-- Common version string operations
+Utils.normalize_version = function(version)
+    -- Remove 'v' prefix if present
+    version = version:gsub("^v", "")
+
+    -- Remove pre-release suffixes
+    local parts = Utils.strings.split(version, "-")
+    return parts[1]
 end
 --- Print Lua objects in command line
 ---
@@ -100,14 +135,13 @@ function Utils.tbl_values(t)
 end
 --- Applies function `fn` to all values of table `t`, in `pairs()` iteration order (which is not
 --- guaranteed to be stable, even when the data doesn't change).
----@generic T
----@param fn fun(value: T): any Function
----@param t table<any, T> Table
----@return table : Table of transformed values
-function Utils.tbl_map(fn, t)
-    --- @cast t table<any,any>
 
-    local rettab = {} --- @type table<any,any>
+---@generic K,V
+---@param fn fun(value: V):any Function
+---@param t table<K,V> Table
+---@return table<K,any> Table of transformed values
+Utils.tbl_map = function(fn, t)
+    local rettab = {}
     for k, v in pairs(t) do
         rettab[k] = fn(v)
     end
@@ -282,37 +316,35 @@ local function is_valid(param_name, val, validator, message, allow_alias)
     end
 end
 
---- @param opt table<type|'callable',Utils.validate.Spec>
---- @return string?
-local function validate_spec(opt)
-    local report --- @type table<string,string>?
+--- Enumerates key-value pairs of a table, ordered by key.
+---
+---@see Based on https://github.com/premake/premake-core/blob/master/src/base/table.lua
+---
+---@generic T: table, K, V
+---@param t T Dict-like table
+---@return fun(table: table<K, V>, index?: K):K, V # |for-in| iterator over sorted keys and their values
+---@return T
+function Utils.spairs(t)
+    Utils.validate("t", t, "table")
+    --- @cast t table<any,any>
 
-    for param_name, spec in pairs(opt) do
-        local err_msg --- @type string?
-        if type(spec) ~= "table" then
-            err_msg = string.format("opt[%s]: expected table, got %s", param_name, type(spec))
-        else
-            local value, validator = spec[1], spec[2]
-            local msg = type(spec[3]) == "string" and spec[3] or nil --[[@as string?]]
-            local optional = spec[3] == true
-            if not (optional and value == nil) then
-                err_msg = is_valid(param_name, value, validator, msg, true)
-            end
-        end
-
-        if err_msg then
-            report = report or {}
-            report[param_name] = err_msg
-        end
+    -- collect the keys
+    local keys = {} --- @type string[]
+    for k in pairs(t) do
+        table.insert(keys, k)
     end
+    table.sort(keys)
 
-    if report then
-        for _, msg in Utils.spairs(report) do -- luacheck: ignore
-            return msg
+    -- Return the iterator function.
+    local i = 0
+    return function()
+        i = i + 1
+        if keys[i] then
+            return keys[i], t[keys[i]]
         end
-    end
+    end,
+        t
 end
-
 --- Validate function arguments.
 ---
 --- This function has two valid forms:
@@ -330,26 +362,6 @@ end
 ---       function Utils.startswith(s, prefix)
 ---         Utils.validate('s', s, 'string')
 ---         Utils.validate('prefix', prefix, 'string')
----         -- ...
----       end
----     ```
----
---- 2. `Utils.validate(spec)` (deprecated)
----     where `spec` is of type
----    `table<string,[value:any, validator: Utils.validate.Validator, optional_or_msg? : boolean|string]>)`
----
----     Validates a argument specification.
----     Specs are evaluated in alphanumeric order, until the first failure.
----
----     Example:
----
----     ```lua
----       function user.new(name, age, hobbies)
----         Utils.validate{
----           name={name, 'string'},
----           age={age, 'number'},
----           hobbies={hobbies, 'table'},
----         }
 ---         -- ...
 ---       end
 ---     ```
@@ -405,9 +417,6 @@ function Utils.validate(name, value, validator, optional, message)
             -- Check more complicated validators
             err_msg = is_valid(name, value, validator, msg, false)
         end
-    elseif type(name) == "table" then -- Form 2
-        Utils.deprecate("Utils.validate{<table>}", "Utils.validate(<params>)", "1.0")
-        err_msg = validate_spec(name)
     else
         error("invalid arguments")
     end
@@ -478,7 +487,7 @@ local function tbl_extend_rec(behavior, deep_extend, ...)
     return ret
 end
 
---- @param behavior 'error'|'keep'|'force'|fun(key:any, prev_value:any?, value:any): any
+--- @param behavior MergeTableBehavior
 --- @param deep_extend boolean
 --- @param ... table<any,any>
 local function tbl_extend(behavior, deep_extend, ...)
@@ -502,12 +511,7 @@ end
 --- Merges two or more tables.
 ---
 ---
----@param behavior 'error'|'keep'|'force'|fun(key:any, prev_value:any?, value:any): any Decides what to do if a key is found in more than one map:
----      - "error": raise an error
----      - "keep":  use value from the leftmost map
----      - "force": use value from the rightmost map
----      - If a function, it receives the current key, the previous value in the currently merged table (if present), the current value and should
----        return the value for the given key in the merged table.
+---@param behavior MergeTableBehavior Decides what to do if a key is found in more than one map:
 ---@param ... table Two or more tables
 ---@return table : Merged table
 function Utils.tbl_extend(behavior, ...)
@@ -524,12 +528,7 @@ end
 ---
 ---@generic T1: table
 ---@generic T2: table
----@param behavior 'error'|'keep'|'force'|fun(key:any, prev_value:any?, value:any): any Decides what to do if a key is found in more than one map:
----      - "error": raise an error
----      - "keep":  use value from the leftmost map
----      - "force": use value from the rightmost map
----      - If a function, it receives the current key, the previous value in the currently merged table (if present), the current value and should
----        return the value for the given key in the merged table.
+---@param behavior MergeTableBehavior
 ---@param ... T2 Two or more tables
 ---@return T1|T2 (table) Merged table
 function Utils.tbl_deep_extend(behavior, ...)

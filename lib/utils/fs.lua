@@ -93,7 +93,7 @@ function M.scandir(directory, opts)
         directory = directory .. "/"
     end
     local search_dir = directory
-    local command = ""
+    local command
 
     if iswin then
         command = 'dir "' .. search_dir .. '" /b'
@@ -173,7 +173,7 @@ function M.path_exists(path, opts)
     Utils.validate("path", path, "string")
     Utils.validate("opts", opts, "table", true)
     opts = opts or { type = "directory" }
-    local exists = false
+    local exists
     if opts.type == "file" then
         exists = M.exists(path)
     else
@@ -199,7 +199,7 @@ end
 function M.Path(components, opts)
     Utils.validate("components", components, { "string", "table" })
     Utils.validate("opts", opts, "table", true)
-    local path = ""
+    local path
     if type(components) == "table" then
         path = M.join_path(unpack(components))
     else

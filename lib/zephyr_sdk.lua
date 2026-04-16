@@ -15,11 +15,11 @@ Utils._submodules = {
     sh = true,
     net = true,
     store = true,
+    semver = true,
 }
 
 Utils._mise_submods = {
     strings = true,
-    semver = true,
     file = true,
     http = true,
     cmd = true,

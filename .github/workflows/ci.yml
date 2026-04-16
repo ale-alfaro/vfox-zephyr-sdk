@@ -28,8 +28,9 @@ jobs:
     needs: lint
     strategy:
       matrix:
-        version: ["0.17.4"]
-        os: [ubuntu-latest, macos-latest]
+        zephyr_sdk_version: ["0.17.4"]
+        ncs_version: ["3.2.1"]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
@@ -41,19 +42,22 @@ jobs:
             uv = "latest"
             [env]
             MISE_USE_VERSIONS_HOST = "0"
-            BACKEND_VERSION = "${{ matrix.version }}"
 
             [tasks.test]
             description = "Tests"
             run = '''
+            zephyr_sdk_version="${{ matrix.zephyr_sdk_version }}"
+            ncs_version="${{ matrix.ncs_version }}"
             echo "Link!"
             mise plugins ln zephyr-sdk .
             echo "ls-remote!"
-            mise ls-remote "zephyr-sdk:toolchain@${BACKEND_VERSION}"
-            mise ls-remote "zephyr-sdk:west@${BACKEND_VERSION}"
+            mise ls-remote "zephyr-sdk:toolchain"
+            mise ls-remote "zephyr-sdk:west"
+            mise ls-remote "zephyr-sdk:ncs_toolchain"
             echo "Exec!"
-            mise x "zephyr-sdk:toolchain[toolchains='arm-zephyr-eabi']@${BACKEND_VERSION:?}" -- arm-zephyr-eabi-gcc --version
-            mise x "zephyr-sdk:west@latest${BACKEND_VERSION:?}" -- west --version
+            mise x "zephyr-sdk:toolchain[toolchains='arm-zephyr-eabi']@$zephyr_sdk_version" -- arm-zephyr-eabi-gcc --version
+            mise x "zephyr-sdk:ncs_toolchain@$ncs_version" -- arm-zephyr-eabi-gcc --version
+            mise x "zephyr-sdk:west" -- west --version
             echo "Finished!"
             '''
       - run: mise run test

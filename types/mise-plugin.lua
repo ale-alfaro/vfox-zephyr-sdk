@@ -25,31 +25,30 @@
 ---| '"HOST"'
 ---
 ---
----@alias AssetMap table<ZephyrSdkOsType, table<ZephyrSdkArchType, ZephyrSdkAsset>> Release assets
----@class ZephyrSdkReleaseCache
----@field releases? table<Version, ZephyrSdkRelease>
----@field timestamp? number
+---
+---@class ToolchainBundle
+---@field asset_name string
+---@field version string
+---@field checksum string
+---@field download_url string
 
+---
+---@class ZephyrSdkAsset : ToolchainBundle
+---@field github_asset_url string
+
+---@alias AssetMap table<ZephyrSdkOsType, table<ZephyrSdkArchType, ZephyrSdkAsset>> Release assets
 ---@class ZephyrSdkRelease
 ---@field tag_name string Release tag (e.g. "v0.17.0")
 ---@field minimal_assets AssetMap
-
----@class ZephyrSdkAsset
----@field asset_name string
----@field version string Version string (e.g. "0.17.0")
----@field browser_download_url string
----@field url string
----@field checksum string
-
+---
 ---@class ZephyrTool
----@field list_versions? fun(): string[]
+---@field list_versions fun(): string[]
 ---@field install fun(ctx: BackendInstallCtx): nil
 ---@field envs fun(ctx: BackendExecEnvCtx): table<string,string>
 
----@class ZephyrSdkToolchain
----@field run_setup fun(setup_fn:fun(args:string[], kwargs?:table<string,string>), ctx:BackendInstallCtx): nil
----@field envs? fun(ctx: BackendExecEnvCtx): table<string,string>
-
+---@class ReleaseStore
+---@field releases? table<Version, table>
+---@field timestamp? number
 ------------------------------------------------------------------------
 -- Globals
 ------------------------------------------------------------------------
@@ -122,9 +121,22 @@ PLUGIN = {}
 ---@comment If a function, it receives the current key, the previous value in the currently merged table (if present), the current value and should
 ---return the value for the given key in the merged table.
 ---@alias MergeTableBehavior MergeTableBehavior|fun(key:any, prev_value:any?, value:any):any
+---      - "error": raise an error
+---      - "keep":  use value from the leftmost map
+---      - "force": use value from the rightmost map
+---      - If a function, it receives the current key, the previous value
+---        in the currently merged table (if present), the current value and should
+---        return the value for the given key in the merged table.
+---@alias FileExtensionType
+---| 'archive'
+---| 'executable'
+
 ------------------------------------------------------------------------
 -- Built-in modules (available via require)
 ------------------------------------------------------------------------
+---@generic K,V
+---@alias MappingFn fun(mapping:(fun(value:V):any),tabl:table<K,V>):table<K,any>
+---
 ---@class Utils
 --- Submodules (mise built-in, loaded lazily via __index)
 ---@field strings strings
@@ -146,8 +158,9 @@ PLUGIN = {}
 ---@field dbg fun(...: any) Log at debug level
 ---@field islist fun(t: table): boolean
 ---@field tbl_extend fun(behavior: MergeTableBehavior, ...: table<any,any>): table
----@field tbl_map fun(fn: fun(value: any): any, t: table): table
+---@field tbl_map MappingFn
 ---@field tbl_deep_extend fun(behavior: MergeTableBehavior, ...: table<any,any>): table
+---@field platform_create_string fun(template:string, opts?:{exttype?:FileExtensionType,override?:table}):string
 Utils = {}
 -- http module --------------------------------------------------------
 
@@ -171,14 +184,35 @@ Utils.http = {}
 
 -- net module (extends http) ------------------------------------------
 
+---@alias GhApiRequestType
+---| 'GET'
+---| 'DOWNLOAD'
+---
+---@class GhApiOpts
+---@field reqType GhApiRequestType
+---@field token? string
+---
+---@class GhListReleasesPayload
+---@field name string
+---@field tag_name string
+---@field draft boolean
+---@field prerelease boolean
+---
+---@class ReleasesConstraints
+---@field version? {min:Version,max:Version}
+---@field prereleases?  boolean
+---
+---@class GithubReleasesConstraints : ReleasesConstraints
+---@field drafts? boolean
+
 ---@class Utils.net : Utils.http
----@field platform_idents fun(overrides?: PlatformInfo): PlatformInfo Get OS/arch identifiers
 ---@field platform_create_string fun(template: string, exttype?: string): string Substitute platform placeholders
 ---@field github_asset_download fun(repo: string, asset_id: string, install_path: string, download_path: string): string Download GitHub release asset
----@field github_fetch_releases fun(repo: string, min_version: string): table Fetch filtered releases from GitHub
+---@field gh_api fun(repo: string, components:string, opts?:GhApiOpts): HttpRequestOpts
 ---@field archived_asset_download fun(url: string, install_dir: string, download_dir: string, asset_opts?: table): string? Download and extract archive
 ---@field executable_asset_download fun(url: string, install_dir: string, exe_name?: string): string? Download executable
 ---@field get_json_payload fun(request: string|HttpRequestOpts, filter_fn?: function, key_to_filter?: string): table? Fetch and parse JSON
+---@field decompress_strip_components fun(install_dir:string ,archive_path:string,components:number):string?
 Utils.net = {}
 
 -- json module --------------------------------------------------------
@@ -243,11 +277,13 @@ local env = {}
 local archiver = {}
 
 -- store module -------------------------------------------------------
-
+---@alias AssetBundleFetchFn fun():table<Version,ToolchainBundle>
 ---@class Utils.store
 ---@field store_exists fun(store_name: string): boolean Check if JSON store exists
 ---@field store_table fun(data: table, store_name: string): string? Write table to JSON store
 ---@field read_table fun(store_name: string): table? Read table from JSON store
+---@field fetch_versions fun(store_name:string,fetch_fn:AssetBundleFetchFn):string[]?
+---@field fetch_asset_bundles fun(store_name:string,version:string):ToolchainBundle?
 Utils.store = {}
 
 -- semver module ------------------------------------------------------
@@ -257,6 +293,8 @@ Utils.store = {}
 ---@field parse fun(version: string): integer[] Parse a version string into numeric parts
 ---@field sort fun(versions: string[]): string[] Sort version strings in ascending order
 ---@field sort_by fun(arr: table[], field: string): table[] Sort tables by a version field
+---@field check_version fun(version: string,constraints:ReleasesConstraints):boolean
+---@field spairs fun(t: table):[(fun(table: table, index?:number):Version,any),table]
 Utils.semver = {}
 
 -- strings module -----------------------------------------------------
