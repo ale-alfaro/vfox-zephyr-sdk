@@ -7,25 +7,7 @@ on:
     branches: [main]
   workflow_dispatch:
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v4
-        with:
-          mise_toml: |
-            [tools]
-            lua = { version ="5.1", postinstall = 'luarocks install luacheck' }
-            lua-language-server = "latest"
-      - name: LuaLS type check
-        run: |
-          luacheck --check .
-      - name: LuaLS type check
-        run: |
-          lua-language-server --check . --checklevel=Error --logpath="$RUNNER_TEMP/luals-log"
-
   smoke-test:
-    needs: lint
     strategy:
       matrix:
         zephyr_sdk_version: ["0.17.4"]
@@ -40,11 +22,18 @@ jobs:
           mise_toml: |
             [tools]
             uv = "latest"
+            lua-language-server = "latest"
+
             [env]
             MISE_USE_VERSIONS_HOST = "0"
 
+            [tasks.lint]
+            description = "Lint"
+            run = 'lua-language-server --check . --checklevel=Error --logpath="$RUNNER_TEMP/luals-log"'
+
             [tasks.test]
             description = "Tests"
+            depends = ["lint"]
             run = '''
             zephyr_sdk_version="${{ matrix.zephyr_sdk_version }}"
             ncs_version="${{ matrix.ncs_version }}"
