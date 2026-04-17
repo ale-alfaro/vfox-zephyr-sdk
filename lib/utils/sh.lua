@@ -1,72 +1,106 @@
-local M = require("cmd") ---@module 'cmd'
+--- Shell command execution utilities.
+--- Wraps mise's built-in `cmd` module with safe execution, cross-platform
+--- token expansion, and convenience wrappers for common filesystem operations.
 
-local function get_mise_path()
-    local which_cmd = string.format("which mise 2>/dev/null")
-    local mise_path = M.exec(which_cmd)
-    if mise_path ~= "" then
-        return Utils.strings.trim_space(mise_path)
-    end
-    return Utils.fs.join_path(os.getenv("HOME") or "~", ".local", "bin", "mise")
+local cmd = require("cmd") ---@module 'cmd'
+
+-- ─── Core execution ──────────────────────────────────────────────────
+
+---@class Utils.sh
+local M = {}
+
+--- Execute a shell command and return its captured output.
+--- Delegates to mise's built-in `cmd.exec`.
+
+--- Execute a formatted shell command and return its captured output.
+---@param fmt string Format string (passed to string.format)
+---@param ... any Format arguments
+---@return string output Captured stdout
+function M.execf(fmt, ...)
+    local ok, res = pcall(cmd.exec, string.format(fmt, ...))
+    return ok ~= nil and res or ""
 end
 
----@param tool string
----@return string? Output
-function M.get_mise_tool_prefix(tool)
-    local which_cmd = string.format("%s which %s 2>/dev/null", get_mise_path(), tool)
-    local tool_path = M.exec(which_cmd)
+-- ─── Cross-platform command tokens ───────────────────────────────────
+--
+-- Tokens like `{mkdir}`, `{copyfile}` embedded in command strings are
+-- expanded to platform-specific shell commands by `map_cmds`.
 
-    if not tool_path or tool_path == "" then
-        error("No tool path")
-        return nil
-    end
+-- ─── Safe execution ──────────────────────────────────────────────────
 
-    -- Extract the bin directory from the python path
-    local bin_dir = tool_path:match("(.*/)")
-    if bin_dir then
-        return bin_dir
-    end
-    error("tool path is not valid")
-    return nil
-end
----@param exec_cmd string|string[]
----@param opts SafeCmdExecOpts?
----@return string|string[]|nil Output
-function M.safe_exec(exec_cmd, opts)
-    Utils.validate("exec_cmd", exec_cmd, { "string", "table" }, "Exec cmd must be string or array")
-    Utils.validate("opts", opts, "table", true)
-    opts = opts or {}
-    exec_cmd = exec_cmd or ""
+---@param exec_cmd string[]
+---@param fail? boolean
+---@return string? output
+function M.exec(exec_cmd, fail)
+    Utils.validate("exec_cmd", exec_cmd, "table")
+    Utils.validate("fail", fail, "boolean", true)
     local sh_cmd = Utils.strings.join(Utils.ensure_list(exec_cmd), " ") or ""
-    local ok, result
-    Utils.inf("Executing command: " .. sh_cmd)
-    ok, result = pcall(M.exec, sh_cmd, opts)
+    Utils.dbg("sh.exec: " .. sh_cmd)
+    local ok, result = pcall(cmd.exec, sh_cmd)
     if not ok then
-        Utils.err("Command execution failed : ")
+        Utils.err("Command failed: " .. sh_cmd)
         if result then
-            local err_msg = Utils.strings.split(tostring(result) or "", "\n")
-            for _, line in ipairs(err_msg) do
-                Utils.err(line)
+            for _, line in ipairs(Utils.strings.split(tostring(result), "\n")) do
+                Utils.err("  " .. line)
             end
         end
-        if opts.fail then
-            error("Command execution failed")
+        if fail then
+            error("Command failed: " .. sh_cmd)
         end
         return nil
     end
-    if opts.output_lines then
-        return Utils.strings.split(result, "\n")
+    if not result then
+        return result
     end
     return Utils.strings.trim_space(result)
 end
 
-function M.has_cmd(exe)
-    local cmd_map = {
-        darwin = "which",
-        linux = "which",
-        windows = "where",
-    }
-    local c = cmd_map[M.get_os()] or "which"
-    return M.safe_exec({ c, exe })
+-- ─── Tool discovery ──────────────────────────────────────────────────
+
+--- Check if an executable exists in PATH.
+---@param exe string Executable name
+---@return string? path Full path to executable, or nil if not found
+function M.which(exe)
+    local mise = M.exec({ "which", "mise" }) or Utils.fs.join_path(os.getenv("HOME") or "~", ".local", "bin", "mise")
+    return M.exec({ mise, "which", exe })
+end
+
+--- Get the bin directory for a mise-managed tool.
+---@param tool string Tool name (e.g. "uvx", "python")
+---@return string? bin_dir Directory path ending with `/`, or nil
+function M.whichdir(tool)
+    local tool_path = M.which(tool) or ""
+    return tool_path:match("(.*/)")
+end
+
+-- ─── Filesystem convenience ──────────────────────────────────────────
+
+--- Resolve the real (absolute, symlink-resolved) path.
+---@param filepath string Path to resolve
+---@return string? resolved Resolved path, or nil on failure
+function M.realpath(filepath)
+    return M.exec({ "realpath", filepath }) --[[@as string?]]
+end
+
+--- Get the current working directory.
+---@return string? cwd Current directory, or nil on failure
+function M.cwd()
+    return M.exec({ "pwd" }) --[[@as string?]]
+end
+
+--- Create a directory and any missing parents.
+---@param dir string Directory path to create
+---@return boolean success
+function M.mkdir(dir)
+    return M.exec({ "mkdir", dir }) ~= nil
+end
+
+--- Set file permissions (POSIX only).
+---@param mode string Permission mode (e.g. "+x", "755")
+---@param filepath string File path
+---@return boolean success
+function M.chmod(mode, filepath)
+    return M.exec({ "chmod", mode, filepath }) ~= nil
 end
 
 return M

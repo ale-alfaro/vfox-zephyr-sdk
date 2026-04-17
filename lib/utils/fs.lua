@@ -67,12 +67,13 @@ function M.directory_exists(path)
     end
 end
 
-function M.isdirectory(path)
+M.isabspath = function(path)
     Utils.validate("path", path, "string")
-    if string.sub(path, -1) == "/" then
-        return true
-    end
-    return false
+    return Utils.strings.has_prefix(path, "/")
+end
+function M.isdir(path)
+    Utils.validate("path", path, "string")
+    return string.sub(path, -1) == "/"
 end
 ---@alias PathType
 ---| "file"
@@ -184,7 +185,7 @@ function M.path_exists(path, opts)
         if opts.type == "file" then
             cmd = { "touch", path }
         end
-        Utils.sh.safe_exec(cmd, { fail = true })
+        Utils.sh.exec(cmd, true)
         return true
     end
     return exists
@@ -289,7 +290,8 @@ end
 --- @param path string Path to resolve.
 --- @return string Resolved path.
 local function path_resolve_dot(path)
-    local is_path_absolute = Utils.strings.has_prefix(path, "/")
+    local is_path_absolute = M.isabspath(path)
+
     local new_path_components = {}
 
     for component in Utils.strings.split(path, "/") do
@@ -335,7 +337,7 @@ local function expand_home(path, sep)
     return path
 end
 
---- @class vim.fs.normalize.Opts
+--- @class Utils.fs.normalize.Opts
 --- @inlinedoc
 ---
 --- Expand environment variables.
@@ -366,9 +368,9 @@ end
 --- Examples:
 --- ```lua
 --- [[C:\Users\jdoe]]                         => "C:/Users/jdoe"
---- "~/src/neovim"                            => "/home/jdoe/src/neovim"
---- "$XDG_CONFIG_HOME/nvim/init.vim"          => "/Users/jdoe/.config/nvim/init.vim"
---- "~/src/nvim/api/../tui/./tui.c"           => "/home/jdoe/src/nvim/tui/tui.c"
+--- "~/src/neoUtils"                            => "/home/jdoe/src/neoUtils"
+--- "$XDG_CONFIG_HOME/nUtils/init.Utils"          => "/Users/jdoe/.config/nUtils/init.Utils"
+--- "~/src/nUtils/api/../tui/./tui.c"           => "/home/jdoe/src/nUtils/tui/tui.c"
 --- "./foo/bar"                               => "foo/bar"
 --- "foo/../../../bar"                        => "../../bar"
 --- "/home/jdoe/../../../bar"                 => "/bar"
@@ -379,7 +381,7 @@ end
 ---
 ---@since 10
 ---@param path (string) Path to normalize
----@param opts? vim.fs.normalize.Opts
+---@param opts? Utils.fs.normalize.Opts
 ---@return (string) : Normalized path
 function M.normalize(path, opts)
     opts = opts or {}
@@ -493,4 +495,36 @@ function M.abspath(path)
     -- Prefix is not needed for expanding relative paths, `cwd` already contains it.
     return M.joinpath(cwd, path)
 end
+
+--- Gets `target` path relative to `base`, or `nil` if `base` is not an ancestor.
+---
+--- Example:
+---
+--- ```lua
+--- Utils.fs.relpath('/var', '/var/lib') -- 'lib'
+--- Utils.fs.relpath('/var', '/usr/bin') -- nil
+--- ```
+---
+--- @param base string
+--- @param target string
+--- @return string|nil
+function M.relpath(base, target)
+    Utils.validate("base", base, "string")
+    Utils.validate("target", target, "string")
+
+    base = M.normalize(M.abspath(base))
+    target = M.normalize(M.abspath(target))
+    if base == target then
+        return "."
+    end
+
+    local prefix = ""
+    if iswin then
+        prefix, base = split_windows_path(base)
+    end
+    base = prefix .. base .. (base ~= "/" and "/" or "")
+
+    return Utils.strings.has_prefix(target, base) and target:sub(#base + 1) or nil
+end
+
 return M

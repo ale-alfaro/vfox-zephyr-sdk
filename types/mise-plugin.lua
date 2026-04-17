@@ -157,6 +157,8 @@ PLUGIN = {}
 ---@field err fun(...: any) Log at error level
 ---@field dbg fun(...: any) Log at debug level
 ---@field islist fun(t: table): boolean
+---@field ensure_list fun(t: any|any[]):any[]
+---@field list_extend fun(dst: table, src:table,start:integer?,finish:integer?):table
 ---@field tbl_extend fun(behavior: MergeTableBehavior, ...: table<any,any>): table
 ---@field tbl_map MappingFn
 ---@field tbl_deep_extend fun(behavior: MergeTableBehavior, ...: table<any,any>): table
@@ -232,6 +234,8 @@ Utils.json = {}
 
 ---@class Utils.fs : file
 ---@field parents fun(start: string): fun(): string? Walk up directory tree
+---@field isdir fun(path: string): boolean
+---@field isabspath fun(path: string): boolean
 ---@field fs_realpath fun(path: string): string? Resolve real path
 ---@field directory_exists fun(path: string): boolean Check if directory exists
 ---@field scandir fun(directory: string, opts?: ScanDirOpts): string[] List files in directory
@@ -241,6 +245,7 @@ Utils.json = {}
 ---@field Path fun(components: string|string[], opts?: PathOpts): string? Join and validate path
 ---@field normalize fun(path: string, opts?: table): string Normalize path
 ---@field abspath fun(path: string): string Convert to absolute path
+---@field relpath fun(base: string,target:string): string Convert to relative path
 Utils.fs = {}
 
 -- cmd module ---------------------------------------------------------
@@ -252,22 +257,28 @@ Utils.fs = {}
 
 ---@class SafeCmdExecOpts : CmdExecOpts
 ---@field fail? boolean If true a failure in the command exec will error out
----@field output_lines? boolean If true a failure in the command exec will error out
+---@field output_lines? boolean If true returns output split into a string[] of lines
 
 ---@class cmd
 ---@field exec fun(command: string, opts?: CmdExecOpts): string Execute a shell command
----@field safe_exec fun(command: string|string[], opts?: SafeCmdExecOpts): string Execute a shell command
+---@field exec fun(command: string|string[], opts?: SafeCmdExecOpts): string Execute a shell command
 
 ---@class Utils.sh : cmd
----@field get_mise_tool_prefix fun(tool: string): string? Get exe dir for a mise tool
----@field has_cmd fun(exe: string): string? Check if command exists in PATH
+---@field execf fun(fmt: string, ...: any): string Execute a formatted shell command
+---@field exec fun(exec_cmd: string[]):string?
+---@field exec fun(exec_cmd: string[], fail:boolean):string
+---@field whichdir fun(tool: string): string? Get bin dir for a mise tool
+---@field which fun(exe: string): string? Check if command exists in PATH
+---@field realpath fun(filepath: string): string? Resolve real path
+---@field cwd fun(): string? Get current working directory
+---@field mkdir fun(dir: string): boolean Create directory recursively
+---@field chmod fun( mode: string,filepath: string): boolean Set file permissions
 Utils.sh = {}
 
 -- env module ---------------------------------------------------------
 
 ---@class env
 ---@field setenv fun(key: string, val: string) Set an environment variable
----@field getenv fun(key: string): string? Get an environment variable
 local env = {}
 
 -- archiver module ----------------------------------------------------
