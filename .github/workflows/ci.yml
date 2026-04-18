@@ -7,46 +7,31 @@ on:
     branches: [main]
   workflow_dispatch:
 jobs:
-  smoke-test:
+  ci:
     strategy:
       matrix:
         zephyr_sdk_version: ["0.17.4"]
         ncs_version: ["3.2.1"]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    env:
+      BACKEND: zephyr-ci-${{ github.run_id }}
+      ZEPHYR_SDK_VERSION: ${{ matrix.zephyr_sdk_version }}
+      NCS_VERSION: ${{ matrix.ncs_version }}
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
         with:
           experimental: true
-          mise_toml: |
-            [tools]
-            uv = "latest"
-            lua-language-server = "latest"
-
-            [env]
-            MISE_USE_VERSIONS_HOST = "0"
-
-            [tasks.lint]
-            description = "Lint"
-            run = 'lua-language-server --check . --checklevel=Error --logpath="$RUNNER_TEMP/luals-log"'
-
-            [tasks.test]
-            description = "Tests"
-            depends = ["lint"]
-            run = '''
-            zephyr_sdk_version="${{ matrix.zephyr_sdk_version }}"
-            ncs_version="${{ matrix.ncs_version }}"
-            echo "Link!"
-            mise plugins ln zephyr-sdk .
-            echo "ls-remote!"
-            mise ls-remote "zephyr-sdk:toolchain"
-            mise ls-remote "zephyr-sdk:west"
-            mise ls-remote "zephyr-sdk:ncs_toolchain"
-            echo "Exec!"
-            mise x "zephyr-sdk:toolchain[toolchains='arm-zephyr-eabi']@$zephyr_sdk_version" -- arm-zephyr-eabi-gcc --version
-            mise x "zephyr-sdk:ncs_toolchain@$ncs_version" -- arm-zephyr-eabi-gcc --version
-            mise x "zephyr-sdk:west" -- west --version
-            echo "Finished!"
-            '''
-      - run: mise run test
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh gcc-multilib g++-multilib device-tree-compiler
+      - name: Cache west repositories
+        uses: actions/cache@v4
+        with:
+          path: .cache/west
+          key: west-${{ matrix.zephyr_sdk_version }}-${{ hashFiles('mise.ci.toml') }}
+          restore-keys: |
+            west-${{ matrix.zephyr_sdk_version }}-
+            west-
+      - run: |
+          mise plugins link "$BACKEND" . --force
+          mise -E ci run ci --continue-on-error --timeout 10m --jobs 4

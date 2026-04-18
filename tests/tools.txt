@@ -1,0 +1,3 @@
+toolchain[toolchains="arm-zephyr-eabi"]:0.17.4:arm-zephyr-eabi-gcc --version
+ncs:3.2.1:arm-zephyr-eabi-gcc --version
+west:1.5.0:west --version
