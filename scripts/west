@@ -1,0 +1,54 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Complete distribution of west with base packages for building Zephyr"
+#MISE dir="{{cwd}}"
+#MISE tools={uv="latest", python="3.12"}
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "anytree>=2.13.0",
+#     "awscli>=1.41.2",
+#     "canopen>=2.3.0",
+#     "clang-format>=15.0.0",
+#     "elasticsearch<9",
+#     "exceptiongroup>=1.0.0rc8",
+#     "gcovr==6.0",
+#     "gitlint-core>=0.19.1",
+#     "gitpython>=3.1.41",
+#     "ijson>=3.4.0",
+#     "intelhex>=2.3.0",
+#     "junit2html>=31.0.2",
+#     "junitparser>=4.0.1",
+#     "mypy>=1.16.1",
+#     "natsort>=8.4.0",
+#     "ply>=3.10",
+#     "psutil>=5.6.6",
+#     "pyelftools>=0.29",
+#     "pygithub>=2.7.0",
+#     "pykwalify>=1.8.0",
+#     "pylint>=3",
+#     "pyserial>=3.5",
+#     "pytest>=8.4.1",
+#     "python-dotenv>=1.1.1",
+#     "python-magic>=0.4.27 ; sys_platform != 'win32'",
+#     "python-magic-bin>=0.4.14 ; sys_platform == 'win32'",
+#     "pyyaml>=6.0.2",
+#     "reuse>=5.0.2",
+#     "ruff==0.11.11",
+#     "setuptools>=70.2.0",
+#     "spdx-tools>=0.8.3",
+#     "sphinx-lint>=1.0.0",
+#     "tabulate>=0.9.0",
+#     "tox>=4.27.0",
+#     "tqdm>=4.67.1",
+#     "unidiff>=0.7.5",
+#     "vermin>=1.6.0",
+#     "west>=0.14.0",
+#     "xlsxwriter>=3.2.5",
+#     "yamllint>=1.37.1",
+# ]
+# ///
+
+
+from west.app.main import main
+
+main()

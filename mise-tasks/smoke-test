@@ -1,50 +1,26 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 #MISE description="Smoke test all tools for a backend version"
-#MISE hide=true
+#USAGE arg "<backend>" help="Backend name"
 set -euo pipefail
 
-: "${BACKEND:?Set BACKEND env var}"
-: "${BACKEND_VERSION:?Set BACKEND_VERSION env var}"
-CONFIG="${MISE_CONFIG_ROOT:?}/tests/tool_cmds.txt"
+BACKEND="${usage_backend:?}"
+tools=(${(f)"$(<tests/tools.txt)"})
+print "Testing backend ${BACKEND:?}:"
+print -rl "${tools[@]}"
 
-fail() { echo "⚠ FAIL: $*"; exit 1; }
-pass() { echo "✓ PASS: $*"; }
+mise plugins link "${BACKEND}" "${MISE_CONFIG_ROOT:?}" --force
 
-cleanup() {
-  echo "Cleaning up installed tools..."
-  while IFS='=' read -r tool _; do
-    mise uninstall "${BACKEND}:${tool}@${BACKEND_VERSION}" 2>/dev/null || true
-  done < "$CONFIG"
-}
-trap cleanup EXIT
+for tool in "${tools[@]}"; do
+  arr=("${(s.:.)tool}")
+  name="${arr[1]}"
+  version="${arr[2]}"
+  cmd=(${arr[3]})
+  print -R "--- ${name}@${version} ---"
 
-mise plugins link --force "${BACKEND}" "${MISE_CONFIG_ROOT:?}"
-mise cache clear
+  print "Testing version listing..."
+  mise ls-remote "${BACKEND}:${name}"
 
-echo "BACKEND=${BACKEND}  VERSION=${BACKEND_VERSION}"
-while IFS='=' read -r tool test_cmd; do
-  echo "── ${tool}@${BACKEND_VERSION} ──"
+  print "Executing: ${cmd[@]}"
+  mise x "${BACKEND}:${name}@${version}" -- ${=cmd[@]}
 
-  echo "Testing version listing..."
-  if mise ls-remote "${BACKEND}:${tool}" > /dev/null; then
-    pass "${tool} version listing"
-  else
-    fail "${tool} version listing - check backend_list_versions.lua"
-  fi
-
-  echo "Installing ${tool}@${BACKEND_VERSION}..."
-  if mise install "${BACKEND}:${tool}@${BACKEND_VERSION}"; then
-    pass "${tool} installation"
-  else
-    fail "${tool} installation"
-  fi
-
-  echo "Executing: ${test_cmd}"
-  if mise exec "${BACKEND}:${tool}@${BACKEND_VERSION}" -- ${test_cmd}; then
-    pass "${tool} execution"
-  else
-    fail "${tool} execution - check backend_exec_env.lua"
-  fi
-done < "$CONFIG"
-
-pass "All smoke tests passed for ${BACKEND}@${BACKEND_VERSION}"
+done
