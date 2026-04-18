@@ -19,7 +19,7 @@ local function edit_west_script(file)
     end
     fp:write(content)
     fp:close()
-    Utils.inf("wrote to west script", { file = file, content = content })
+    Utils.dbg("wrote to west script", { file = file, content = content })
 end
 ---@class ZephyrTool
 local M = {}
@@ -45,7 +45,7 @@ M.list_versions = function()
     local versions = Utils.list_filter(function(v)
         return Utils.semver.compare(MIN_VERSION, v) <= 0
     end, decoded.versions)
-    Utils.inf("Versions :", { versions = versions })
+    Utils.dbg("Versions :", { versions = versions })
 
     return versions or {}
 end
@@ -134,7 +134,7 @@ function M.envs(ctx) -- luacheck: no unused args
     if zephyr_base then
         env_vars[#env_vars + 1] = { key = "ZEPHYR_BASE", value = zephyr_base }
     else
-        Utils.wrn("ZEPHYR_BASE could not be determined. Set it manually or run from inside a west workspace.")
+        Utils.inf("ZEPHYR_BASE could not be determined. Set it manually or run from inside a west workspace.")
     end
 
     return env_vars

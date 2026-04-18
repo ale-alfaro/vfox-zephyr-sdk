@@ -7,7 +7,7 @@ function PLUGIN:BackendInstall(ctx)
         Utils.err("Could not find tool : ", { tool = ctx.tool, version = ctx.version, install = ctx.install_path })
         return {}
     end
-    Utils.inf("Preparing to install  tool: ", { tool = tool, ctx = ctx })
+    Utils.dbg("Preparing to install tool: ", { tool = tool, ctx = ctx })
     tool.install(ctx)
     return {}
 end

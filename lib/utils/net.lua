@@ -53,7 +53,7 @@ function M.github_asset_download(repo, asset_id, install_path, download_path)
     if err ~= nil then
         Utils.fatal("Download failed: ", { err = err })
     end
-    Utils.inf("Extracting archive to install path", { download_path = download_path, install_path = install_path })
+    Utils.dbg("Extracting archive to install path", { download_path = download_path, install_path = install_path })
     err = archiver.decompress(download_path, install_path)
     if err ~= nil then
         Utils.fatal("Extraction failed", { download = download_path, err = err })
@@ -68,7 +68,7 @@ function M.decompress_strip_components(archive_path, install_dir, components)
     Utils.validate("archive_path", archive_path, "string")
     Utils.validate("install_dir", install_dir, "string")
     Utils.validate("components", components, "number")
-    Utils.inf(
+    Utils.dbg(
         "Extracting SDK and stripping components",
         { archive = archive_path, dest = install_dir, components = components }
     )
@@ -150,7 +150,7 @@ function M.get_json_payload(request, filter_fn, key_to_filter)
     Utils.validate("key_to_filter", key_to_filter, "string", true)
     local json = require("json")
     local http = require("http")
-    Utils.inf("Request:", { request = request })
+    Utils.dbg("Request:", { request = request })
     local resp, err
     if type(request) == "table" then
         resp, err = http.try_get(request)
@@ -185,7 +185,7 @@ function M.get_json_payload(request, filter_fn, key_to_filter)
     if key_to_filter then
         return Utils.tbl_filter(filter_fn, result[key_to_filter])
     end
-    Utils.inf("Payload:", { res = result })
+    Utils.dbg("Payload:", { res = result })
     return Utils.tbl_filter(filter_fn, result)
 end
 return M

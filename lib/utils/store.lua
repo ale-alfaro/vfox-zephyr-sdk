@@ -29,7 +29,7 @@ function M.store_table(data, store_name)
     if M.store_exists(store_name) then
         local is_fresh, ts = timestamp_check_for_freshness(data)
         if is_fresh then
-            Utils.inf("Returning stored data as it is still fresh")
+            Utils.dbg("Returning stored data as it is still fresh")
             return nil
         else
             data.timestamp = ts
@@ -57,7 +57,7 @@ end
 function M.read_table(store_name)
     Utils.validate("store_name", store_name, "string")
     if not M.store_exists(store_name) then
-        Utils.wrn("Store does not exist with key : " .. store_name)
+        Utils.dbg("Store does not exist with key : " .. store_name)
         return nil
     end
     -- Run the Poetry installer via bash script
@@ -78,7 +78,7 @@ function M.fetch_versions(store_name, fetch_fn)
     Utils.validate("store_name", store_name, "string")
     Utils.validate("fetch_releases_fn", fetch_fn, "function")
     if Utils.store.store_exists(store_name) then
-        Utils.inf("Store exists already, returning values stored there")
+        Utils.dbg("Store exists already, returning values stored there")
         local assets = Utils.store.read_table(store_name)
         if not assets then
             Utils.fatal("Could not get asset store")
@@ -98,7 +98,7 @@ function M.fetch_versions(store_name, fetch_fn)
     end
 
     Utils.store.store_table(cache, store_name)
-    Utils.inf("Versions", { versions = versions })
+    Utils.dbg("Versions", { versions = versions })
     return versions
 end
 ---@param store_name string

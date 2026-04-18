@@ -5,12 +5,12 @@
 --- @return BackendExecEnvResult
 function PLUGIN:BackendExecEnv(ctx)
     require("zephyr_sdk")
-    Utils.inf("Preparing envs for tool: ", { ctx = ctx })
+    Utils.dbg("Preparing envs for tool: ", { ctx = ctx })
     local tool = ZephyrSdk[ctx.tool]
     if not tool then
         return {}
     end
     local envs = tool.envs(ctx)
-    Utils.inf("Envs: ", { envs = envs })
+    Utils.dbg("Envs: ", { envs = envs })
     return { env_vars = envs }
 end

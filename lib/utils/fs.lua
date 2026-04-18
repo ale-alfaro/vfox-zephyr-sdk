@@ -116,7 +116,7 @@ function M.scandir(directory, opts)
         end
         local matched = path:match(check)
         if matched then
-            Utils.inf("Matched path", { matched = matched })
+            Utils.dbg("Matched path", { matched = matched })
             table.insert(res, search_dir .. matched)
         end
     end

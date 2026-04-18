@@ -132,7 +132,7 @@ local function run_setup(sdk_root, opts)
     if #cmd <= 1 then
         cmd = cmd .. " -?"
     end
-    Utils.inf("Running Zephyr SDK setup", { cmd = cmd })
+    Utils.dbg("Running Zephyr SDK setup", { cmd = cmd })
     return os.execute(cmd)
 end
 

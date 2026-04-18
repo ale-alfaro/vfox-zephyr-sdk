@@ -15,7 +15,7 @@ local function get_toolchain_bundle_index()
 
     local url = Utils.fs.join_path(TOOLCHAIN_BUNDLES_BASE_URL, index_json_name)
     -- macOS uses a universal binary
-    Utils.inf("URL: ", { url = url })
+    Utils.dbg("URL: ", { url = url })
     -- try_get: returns (resp, nil) on success, (nil, err_string) on failure
     local bundles = Utils.net.get_json_payload(url, function(bundle) ---@as ToolchainBundle[]?
         if bundle["json_api_version"] and bundle["json_api_version"] == 2 then
@@ -79,7 +79,7 @@ function M.install(ctx)
     Utils.inf("Downloading ncs toolchain", { bundle = bundle })
     local ok, err_msg = os.remove(install_path)
     if not ok then
-        Utils.inf("Could not remove installation directory to replace it with the toolchain", { err = err_msg })
+        Utils.wrn("Could not remove installation directory to replace it with the toolchain", { err = err_msg })
         local zephyr_sdk_install_dir = Utils.fs.join_path(install_path, "opt", "zephyr-sdk")
         if Utils.fs.directory_exists(zephyr_sdk_install_dir) then
             Utils.wrn("Zephyr SDK installation already exists")
