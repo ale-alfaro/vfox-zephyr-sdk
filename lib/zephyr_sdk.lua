@@ -38,11 +38,6 @@ setmetatable(Utils, {
     end,
 })
 
----@class ZephyrTool
----@field list_versions? fun(): string[]
----@field install fun(version: string,install_path:string, install_path:string): nil
----@field envs fun(version: string,install_path:string):EnvKey[]
-
 _G.ZephyrSdk = _G.ZephyrSdk or {}
 ---@class ZephyrSDK._tools : table<string, ZephyrTool>
 ZephyrSdk._tools = {

@@ -40,7 +40,7 @@ end
 
 ---@param path string
 ---@return string? Output
-function M.fs_realpath(path)
+local function fs_realpath(path)
     local handle = io.popen(string.format("realpath %s 2>/dev/null", path))
     if not handle then
         return nil
@@ -191,29 +191,6 @@ function M.path_exists(path, opts)
     return exists
 end
 
----@class PathOpts : PathExistsOpts
----@field fail? boolean
-
----@param components string|string[]
----@param opts? PathOpts
----@return string? path
-function M.Path(components, opts)
-    Utils.validate("components", components, { "string", "table" })
-    Utils.validate("opts", opts, "table", true)
-    local path
-    if type(components) == "table" then
-        path = M.join_path(unpack(components))
-    else
-        path = components
-    end
-    opts = opts or {}
-    path = Utils.strings.trim_space(path)
-    if opts.fail and not M.path_exists(path, opts) then
-        Utils.fatal("Path does not exists")
-    end
-    return path
-end
-
 --- Split a Windows path into a prefix and a body, such that the body can be processed like a POSIX
 --- path. The path must use forward slashes as path separator.
 ---
@@ -345,10 +322,6 @@ end
 --- @field expand_env? boolean
 ---
 --- @field package _fast? boolean
----
---- Path is a Windows path.
---- (default: `true` in Windows, `false` otherwise)
---- @field win? boolean
 
 --- Normalize a path to a standard format. A tilde (~) character at the beginning of the path is
 --- expanded to the user's home directory and environment variables are also expanded. "." and ".."
@@ -389,10 +362,9 @@ function M.normalize(path, opts)
     if not opts._fast then
         Utils.validate("path", path, "string")
         Utils.validate("expand_env", opts.expand_env, "boolean", true)
-        Utils.validate("win", opts.win, "boolean", true)
     end
 
-    local win = opts.win == nil and iswin or not not opts.win
+    local win = Utils.os() == "windows"
     local os_sep_local = win and "\\" or "/"
 
     -- Empty path is already normalized
@@ -485,7 +457,7 @@ function M.abspath(path)
 
     -- Windows allows paths like C:foo/bar, these paths are relative to the current working directory
     -- of the drive specified in the path
-    local cwd = assert((iswin and prefix:match("^%w:$")) and M.fs_realpath(prefix) or os.getenv("PWD"))
+    local cwd = assert((iswin and prefix:match("^%w:$")) and fs_realpath(prefix) or os.getenv("PWD"))
     -- Convert cwd path separator to `/`
     cwd = cwd:gsub(os_sep, "/")
 

@@ -19,3 +19,7 @@ Thumbs.db
 *.log
 zephyr-sdk-*
 *_store.json
+
+# Test isolation
+.test-mise-data/
+fake_workspace/

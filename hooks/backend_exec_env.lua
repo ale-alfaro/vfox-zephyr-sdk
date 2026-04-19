@@ -10,7 +10,7 @@ function PLUGIN:BackendExecEnv(ctx)
     if not tool then
         return {}
     end
-    local envs = tool.envs(ctx)
+    local envs = tool.envs(ctx, ctx.options)
     Utils.dbg("Envs: ", { envs = envs })
     return { env_vars = envs }
 end

@@ -8,6 +8,6 @@ function PLUGIN:BackendInstall(ctx)
         return {}
     end
     Utils.dbg("Preparing to install tool: ", { tool = tool, ctx = ctx })
-    tool.install(ctx)
+    tool.install(ctx, ctx.options)
     return {}
 end

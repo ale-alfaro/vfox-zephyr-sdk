@@ -55,11 +55,11 @@ end
 ---@param ctx BackendInstallCtx The mise-provided install context
 function M.install(ctx)
     local install_path = ctx.install_path
+    local opts = ctx.options or {} ---@as WestToolOptions
     local plugin_path = Utils.sh.realpath(RUNTIME.pluginDirPath)
     if not plugin_path then
         error("Could not get plugin path")
     end
-    local requirements_in = Utils.fs.join_path(plugin_path, "scripts", "requirements.in")
     local requirements_txt = Utils.fs.join_path(plugin_path, "scripts", "requirements.txt")
     local west_script = Utils.fs.join_path(install_path, "west")
 
@@ -78,15 +78,31 @@ function M.install(ctx)
         PYTHON_VERSION,
     }, true)
     -- Let uv resolve deps from requirements.in and write them into the inline metadata
+    local requirements_in = {
+        Utils.fs.join_path(plugin_path, "scripts", "requirements.in"),
+    }
+    if opts.ncs then
+        requirements_in[#requirements_in + 1] = Utils.fs.join_path(plugin_path, "scripts", "requirements_ncs.in")
+    end
+    if type(opts.additional_requirements) == "table" or type(opts.additional_requirements) == "string" then
+        Utils.inf("Adding additional dependencies: ", { reqs = opts.additional_requirements })
+        requirements_in = Utils.list_extend(requirements_in, Utils.ensure_list(opts.additional_requirements))
+    end
+    local requirement_flags = { "-c", requirements_txt }
+    for _, req in ipairs(requirements_in) do
+        if Utils.fs.exists(req) then
+            requirement_flags[#requirement_flags + 1] = "-r"
+            requirement_flags[#requirement_flags + 1] = req
+        else
+            Utils.wrn("Could'nt find requirement ", { req = req })
+        end
+    end
     Utils.sh.exec({
         uv,
         "add",
         "--script",
         west_script,
-        "-r",
-        requirements_in,
-        "-c",
-        requirements_txt,
+        unpack(requirement_flags),
     }, true)
     edit_west_script(west_script)
     Utils.sh.chmod("+x", west_script)
@@ -121,18 +137,26 @@ end
 ---@return EnvKey[] env_vars Array of {key, value} tables
 function M.envs(ctx) -- luacheck: no unused args
     local install_path = ctx.install_path
+    local uv = Utils.sh.which("uv")
+    if not uv then
+        error("UV must be installed")
+    end
+
     local env_vars = {
         { key = "PATH", value = install_path },
     }
 
-    local zephyr_base = os.getenv("ZEPHYR_BASE")
+    local zephyr_base_env = os.getenv("ZEPHYR_BASE")
 
-    if not zephyr_base then
-        zephyr_base = find_zephyr_from_workspace()
+    if zephyr_base_env then
+        Utils.dbg("ZEPHYR_BASE already set. Exiting", { zephyr_base = zephyr_base_env })
+        return env_vars
     end
-
-    if zephyr_base then
-        env_vars[#env_vars + 1] = { key = "ZEPHYR_BASE", value = zephyr_base }
+    local west = Utils.fs.join_path(install_path, "west")
+    zephyr_base_env = Utils.sh.exec({ uv, "run", "--script", west, "config", "zephyr.base" })
+        or find_zephyr_from_workspace()
+    if zephyr_base_env then
+        env_vars[#env_vars + 1] = { key = "ZEPHYR_BASE", value = zephyr_base_env }
     else
         Utils.inf("ZEPHYR_BASE could not be determined. Set it manually or run from inside a west workspace.")
     end

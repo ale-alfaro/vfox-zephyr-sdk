@@ -73,22 +73,17 @@ M.list_versions = function()
     return versions or {}
 end
 
----@class ToolchainSetupOpts
----@field toolchains? string[] Toolchain targets to install (e.g. {"arm-zephyr-eabi"})
----@field hosttools? boolean Install host tools
----@field cmake_pkg? boolean Register Zephyr SDK CMake package
----@field family? ZephyrSdkToolchainFamily
 ---
----@param opts? table Custom options from mise.toml
----@param version string Custom options from mise.toml
----@return ToolchainSetupOpts
-local function parse_toolchain_options(opts, version)
+---@param opts? ToolOptions Custom options from mise.toml
+---@return ToolchainOptions
+local function parse_toolchain_options(opts)
+    Utils.inf("Parsing opts:", { opts = opts })
     local tc_opts = Utils.tbl_extend("force", {
 
         toolchains = {},
         hosttools = false,
         cmake_pkg = false,
-        family = (Utils.semver.compare(version, "1.0.0") >= 0) and "gnu" or "zephyr",
+        family = "zephyr",
     }, opts or {})
     if tc_opts.toolchains then
         local toolchains = {}
@@ -106,7 +101,7 @@ end
 --- 3. Runs setup.sh to download the arm-zephyr-eabi cross-compiler, host tools,
 ---    and register the CMake package
 ---@param sdk_root string Path containing setup.sh (the flattened install dir)
----@param opts ToolchainSetupOpts
+---@param opts ToolchainOptions
 ---@return number
 local function run_setup(sdk_root, opts)
     Utils.validate("sdk_root", sdk_root, "string")
@@ -139,13 +134,21 @@ end
 --- Installs a specific version of nrfutil (launcher + pinned core module).
 --- Layout: install_path/bin/nrfutil, install_path/home/, install_path/download/
 ---@param ctx BackendInstallCtx The mise-provided install path
-function M.install(ctx)
+---@param opts? ToolOptions
+function M.install(ctx, opts)
     Utils.validate("ctx", ctx, "table")
+    Utils.validate("opts", opts, "table", true)
+
     local version, install_path, download_path = ctx.version, ctx.install_path, ctx.download_path
     Utils.validate("version", version, "string")
     Utils.validate("install_path", install_path, "string")
     Utils.validate("download_path", download_path, "string")
-    local opts = parse_toolchain_options(ctx.options, ctx.version)
+    local toolchain_opts = parse_toolchain_options(opts)
+    if toolchain_opts.family == "ncs" then
+        --- we install it like we do using NCS
+        Utils.inf("ncs passed as an option for toolchain family")
+        return ZephyrSdk.ncs_toolchain(ctx, opts)
+    end
     local asset = Utils.store.fetch_asset_bundles(STORE_KEY, version)
 
     if not asset then
@@ -161,7 +164,7 @@ function M.install(ctx)
         download_path,
         { name = "zephr-sdk-" .. version, strip_components = 1 }
     )
-    if run_setup(install_path, opts) ~= 0 then
+    if run_setup(install_path, toolchain_opts) ~= 0 then
         Utils.err("Running setup cmd failed with error ")
     else
         Utils.inf("Installed toolchain at", { res = install_path })
@@ -169,22 +172,27 @@ function M.install(ctx)
 end
 
 ---@param ctx BackendExecEnvCtx
+---@param opts? ToolOptions
 ---@return EnvKey[] env_vars Array of {key, value} tables
-function M.envs(ctx) -- luacheck: no unused args
+function M.envs(ctx, opts) -- luacheck: no unused args
     Utils.validate("ctx", ctx, "table")
+    Utils.validate("opts", opts, "table", true)
     local version, zephyr_sdk_install_dir = ctx.version, ctx.install_path
     Utils.validate("version", version, "string")
     Utils.validate("zephyr_sdk_install_dir", zephyr_sdk_install_dir, "string")
-    local opts = parse_toolchain_options(ctx.options, ctx.version)
-    local toolchain_root = (opts.family ~= "zephyr") and Utils.fs.join_path(zephyr_sdk_install_dir, opts.family)
-        or zephyr_sdk_install_dir
+    local toolchain_opts = parse_toolchain_options(opts) ---@as ToolchainOptions
+    local toolchain_root = zephyr_sdk_install_dir
+    if Utils.semver.compare(version, "1.0.0") >= 0 then
+        toolchain_root = (toolchain_opts.family == "zephyr") and Utils.fs.join_path(zephyr_sdk_install_dir, "gnu")
+            or Utils.fs.join_path(zephyr_sdk_install_dir, "llvm")
+    end
     local env_vars = {
-        { key = "ZEPHYR_TOOLCHAIN_VARIANT", value = opts.family },
+        { key = "ZEPHYR_TOOLCHAIN_VARIANT", value = toolchain_opts.family },
         { key = "ZEPHYR_SDK_INSTALL_DIR", value = zephyr_sdk_install_dir },
     }
-    if opts.toolchains then
-        for _, tc in ipairs(opts.toolchains) do
-            env_vars[#env_vars + 1] = { key = "PATH", value = Utils.fs.Path({ toolchain_root, tc, "bin" }) }
+    if toolchain_opts.toolchains then
+        for _, tc in ipairs(toolchain_opts.toolchains) do
+            env_vars[#env_vars + 1] = { key = "PATH", value = Utils.fs.join_path(toolchain_root, tc, "bin") }
         end
     end
     return env_vars

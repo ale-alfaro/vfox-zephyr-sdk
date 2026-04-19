@@ -5,6 +5,62 @@ M.http = require("http")
 local GITHUB_API_URL = "https://api.github.com"
 local GITHUB_REPOS_URL = Utils.fs.join_path(GITHUB_API_URL, "repos")
 
+-- ─── Download with progress ─────────────────────────────────────────
+
+--- Check once whether curl is available in PATH.
+--- Caches the result so we only shell out once per plugin invocation.
+---@return boolean
+local _has_curl
+local function has_curl()
+    if _has_curl == nil then
+        _has_curl = os.execute("curl --version >/dev/null 2>&1") == 0
+        if not _has_curl then
+            Utils.dbg("curl not found in PATH, downloads will use built-in http (no progress bar)")
+        end
+    end
+    return _has_curl
+end
+
+--- Download a file using curl with a visible progress bar.
+--- curl writes progress to stderr, which passes through to the terminal.
+--- Falls back to mise's http.try_download_file if curl is not available.
+---@param url string Download URL
+---@param dest string Destination file path
+---@param headers? table<string, string> Optional HTTP headers
+---@return boolean ok
+---@return string? err
+function M.download_with_progress(url, dest, headers)
+    Utils.validate("url", url, "string")
+    Utils.validate("dest", dest, "string")
+
+    if has_curl() then
+        -- Build curl command with progress bar
+        local parts = { "curl", "-fSL", "--progress-bar", "-o", string.format("%q", dest) }
+        if headers then
+            for k, v in pairs(headers) do
+                parts[#parts + 1] = "-H"
+                parts[#parts + 1] = string.format("%q", k .. ": " .. v)
+            end
+        end
+        parts[#parts + 1] = string.format("%q", url)
+        local curl_cmd = table.concat(parts, " ")
+
+        Utils.dbg("Downloading with progress", { cmd = curl_cmd })
+        local exit_code = os.execute(curl_cmd)
+        if exit_code == 0 then
+            return true, nil
+        end
+        Utils.wrn("curl download failed, falling back to built-in http", { exit_code = exit_code })
+    end
+
+    -- Fallback: built-in http (no progress bar)
+    local success, err = M.http.try_download_file({ url = url, headers = headers or {} }, dest)
+    if not success then
+        return false, err
+    end
+    return true, nil
+end
+
 ---
 
 --- @param repo string
@@ -46,11 +102,9 @@ function M.github_asset_download(repo, asset_id, install_path, download_path)
     Utils.validate("download_path", download_path, "string")
 
     local archiver = require("archiver")
-    local err = M.http.download_file(
-        M.gh_api(repo, Utils.fs.join_path("releases", "assets", asset_id), { reqType = "DOWNLOAD" }),
-        download_path
-    )
-    if err ~= nil then
+    local api_opts = M.gh_api(repo, Utils.fs.join_path("releases", "assets", asset_id), { reqType = "DOWNLOAD" })
+    local ok, err = M.download_with_progress(api_opts.url, download_path, api_opts.headers)
+    if not ok then
         Utils.fatal("Download failed: ", { err = err })
     end
     Utils.dbg("Extracting archive to install path", { download_path = download_path, install_path = install_path })
@@ -92,11 +146,9 @@ function M.archived_asset_download(url, install_dir, download_dir, asset_opts)
 
     asset_opts = asset_opts or {}
     local packaged_asset = Utils.fs.join_path(download_dir, archive_name)
-    local _, err = M.http.try_download_file({
-        url = url,
-    }, packaged_asset)
-    if err ~= nil then
-        Utils.err("Extraction failed of archive", { packaged_asset = packaged_asset, err = err })
+    local ok, err = M.download_with_progress(url, packaged_asset)
+    if not ok then
+        Utils.err("Download failed of archive", { packaged_asset = packaged_asset, err = err })
         return nil
     end
     if asset_opts.strip_components then
@@ -129,11 +181,9 @@ function M.executable_asset_download(url, install_dir, exe_name)
         exe_name = exe_name .. exe_ext
     end
     local asset = Utils.fs.join_path(install_dir, exe_name)
-    local _, err = M.http.try_download_file({
-        url = url,
-    }, asset)
-    if err ~= nil then
-        Utils.err("Download failed: " .. err)
+    local ok, err = M.download_with_progress(url, asset)
+    if not ok then
+        Utils.err("Download failed: " .. (err or "unknown error"))
         return nil
     end
     Utils.inf("Downloaded and extracted asset", { asset = asset })
