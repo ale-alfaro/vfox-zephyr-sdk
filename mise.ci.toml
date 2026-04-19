@@ -4,7 +4,6 @@ WORKSPACE = "{{config_root}}/fake_workspace"
 WEST_CACHE = "{{config_root}}/.cache/west"
 
 [tools]
-uv = "latest"
 lua-language-server = "latest"
 
 [tasks.lint]
@@ -87,12 +86,11 @@ echo "Integration test: zephyr.exe built successfully"
 hide = true
 run = '''
 [[ -d "${WORKSPACE}" ]] && rm -rf "${WORKSPACE}"
-[[ -d "${MISE_DATA_DIR}" ]] && rm -rf "${MISE_TEST_DATA_DIR}"
 '''
 
 [tasks.ci]
 description = "Run all CI checks"
-env = { MISE_DATA_DIR = "{{config_root}}/.test-mise-data" }
+tools = { uv = "latest" }
 run = [
   { task = 'lint' },
   { task = 'setup-test' },

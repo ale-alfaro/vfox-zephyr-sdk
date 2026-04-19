@@ -11,12 +11,10 @@ jobs:
     strategy:
       matrix:
         zephyr_sdk_version: ["0.17.4"]
-        ncs_version: ["3.2.1"]
     runs-on: ubuntu-latest
     env:
       BACKEND: zephyr-ci-${{ github.run_id }}
       ZEPHYR_SDK_VERSION: ${{ matrix.zephyr_sdk_version }}
-      NCS_VERSION: ${{ matrix.ncs_version }}
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
@@ -33,5 +31,4 @@ jobs:
             west-${{ matrix.zephyr_sdk_version }}-
             west-
       - run: |
-          mise plugins link "$BACKEND" . --force
           mise -E ci run ci --continue-on-error --timeout 10m --jobs 4
