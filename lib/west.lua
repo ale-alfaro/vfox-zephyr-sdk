@@ -19,18 +19,39 @@ local function edit_west_script(file)
     end
     fp:write(content)
     fp:close()
-    Utils.inf("wrote to west script", { file = file, content = content })
+    Utils.dbg("wrote to west script", { file = file, content = content })
 end
 ---@class ZephyrTool
 local M = {}
 local MIN_VERSION = "1.4.0"
---- Map runtime OS name to Zephyr SDK naming convention
+
+--- Resolve uv binary path from the dependency environment.
+--- mise injects dependency bin dirs into cmd_env (via PLUGIN.depends = {"uv"}),
+--- so uv is on PATH when hooks execute. We resolve the full path once and cache it.
+---@return string uv_path Absolute path to the uv binary
+---@return string uvx_path Absolute path to the uvx binary
+local _uv, _uvx
+local function resolve_uv()
+    if _uv then
+        return _uv, _uvx
+    end
+    local uv = Utils.sh.exec({ "which", "uv" })
+    if not uv then
+        error(
+            'uv not found on PATH. Ensure "uv" is declared in PLUGIN.depends '
+                .. "and installed via mise (e.g. mise install uv)"
+        )
+    end
+    _uv = uv
+    -- uvx lives next to uv
+    _uvx = Utils.fs.join_path(Utils.fs.dirname(uv), "uvx")
+    Utils.dbg("Resolved uv dependency", { uv = _uv, uvx = _uvx })
+    return _uv, _uvx
+end
+
 ---@return string[] versions
 M.list_versions = function()
-    local uvx = Utils.sh.which("uvx")
-    if not uvx then
-        error("UV must be installed")
-    end
+    local _, uvx = resolve_uv()
     local versions_json =
         Utils.sh.execf([[%s pip index versions west --only-final :all: --python-version 3.12 --json]], uvx)
     if not versions_json then
@@ -45,7 +66,7 @@ M.list_versions = function()
     local versions = Utils.list_filter(function(v)
         return Utils.semver.compare(MIN_VERSION, v) <= 0
     end, decoded.versions)
-    Utils.inf("Versions :", { versions = versions })
+    Utils.dbg("Versions :", { versions = versions })
 
     return versions or {}
 end
@@ -55,19 +76,15 @@ end
 ---@param ctx BackendInstallCtx The mise-provided install context
 function M.install(ctx)
     local install_path = ctx.install_path
+    local opts = ctx.options or {} ---@as WestToolOptions
     local plugin_path = Utils.sh.realpath(RUNTIME.pluginDirPath)
     if not plugin_path then
         error("Could not get plugin path")
     end
-    local requirements_in = Utils.fs.join_path(plugin_path, "scripts", "requirements.in")
     local requirements_txt = Utils.fs.join_path(plugin_path, "scripts", "requirements.txt")
     local west_script = Utils.fs.join_path(install_path, "west")
 
-    local uv = Utils.sh.which("uv")
-    if not uv then
-        error("UV must be installed")
-    end
-    -- Write the script template (empty deps placeholder)
+    local uv = resolve_uv()
 
     Utils.sh.exec({
         uv,
@@ -78,41 +95,35 @@ function M.install(ctx)
         PYTHON_VERSION,
     }, true)
     -- Let uv resolve deps from requirements.in and write them into the inline metadata
+    local requirements_in = {
+        Utils.fs.join_path(plugin_path, "scripts", "requirements.in"),
+    }
+    if opts.ncs then
+        requirements_in[#requirements_in + 1] = Utils.fs.join_path(plugin_path, "scripts", "requirements_ncs.in")
+    end
+    if type(opts.additional_requirements) == "table" or type(opts.additional_requirements) == "string" then
+        Utils.inf("Adding additional dependencies: ", { reqs = opts.additional_requirements })
+        requirements_in = Utils.list_extend(requirements_in, Utils.ensure_list(opts.additional_requirements))
+    end
+    local requirement_flags = { "-c", requirements_txt }
+    for _, req in ipairs(requirements_in) do
+        if Utils.fs.exists(req) then
+            requirement_flags[#requirement_flags + 1] = "-r"
+            requirement_flags[#requirement_flags + 1] = req
+        else
+            Utils.wrn("Could'nt find requirement ", { req = req })
+        end
+    end
     Utils.sh.exec({
         uv,
         "add",
         "--script",
         west_script,
-        "-r",
-        requirements_in,
-        "-c",
-        requirements_txt,
+        unpack(requirement_flags),
     }, true)
     edit_west_script(west_script)
     Utils.sh.chmod("+x", west_script)
     Utils.inf("Installed west shim", { script = west_script })
-end
-
---- Walks up from cwd looking for a west workspace (.west directory).
---- If found, returns the zephyr directory within the workspace root.
----@return string|nil zephyr_base
-local function find_zephyr_from_workspace()
-    local dir = os.getenv("PWD") or Utils.sh.cwd()
-    if not dir then
-        return nil
-    end
-
-    while dir and dir ~= "/" and dir ~= "" do
-        if Utils.fs.directory_exists(Utils.fs.join_path(dir, ".west")) then
-            local candidate = Utils.fs.join_path(dir, "zephyr")
-            if Utils.fs.directory_exists(candidate) then
-                return candidate
-            end
-            return nil
-        end
-        dir = Utils.fs.dirname(dir)
-    end
-    return nil
 end
 
 --- Returns environment variables for the west shim.
@@ -121,20 +132,25 @@ end
 ---@return EnvKey[] env_vars Array of {key, value} tables
 function M.envs(ctx) -- luacheck: no unused args
     local install_path = ctx.install_path
+    local opts = ctx.options or {} ---@as WestToolOptions?
+
     local env_vars = {
         { key = "PATH", value = install_path },
     }
+    local ok = os.execute(Utils.fs.join_path(install_path, "west") .. " topdir 2>/dev/null")
+    local zephyr_base_env = os.getenv("ZEPHYR_BASE")
 
-    local zephyr_base = os.getenv("ZEPHYR_BASE")
-
-    if not zephyr_base then
-        zephyr_base = find_zephyr_from_workspace()
-    end
-
-    if zephyr_base then
-        env_vars[#env_vars + 1] = { key = "ZEPHYR_BASE", value = zephyr_base }
-    else
-        Utils.wrn("ZEPHYR_BASE could not be determined. Set it manually or run from inside a west workspace.")
+    if ok ~= 0 and not zephyr_base_env and not opts.freestanding then
+        Utils.wrn([[West workspace not detected and no ZEPHYR_BASE is set.
+  West wont be able to access most commands unless you set this variable
+  If you are in a workspace you should set ZEPHYR_BASE to the path of the zephyr repo in the workspace.
+  If you know what you are doing and want to silence this warning set the following option in the mise.toml:
+  ```toml
+  [tools]
+  "zephyr-sdk:west" = { ... , freestanding = true }
+                    ```
+                  ]])
+        return env_vars
     end
 
     return env_vars

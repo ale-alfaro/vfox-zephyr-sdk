@@ -19,12 +19,15 @@
 ---@alias Version string
 ---
 ---@alias ZephyrSdkToolchainFamily
----| '"ZEPHYR"'
----| '"GNU"'
----| '"LLVM"'
----| '"HOST"'
+---| '"zephyr"'
+---| '"ncs"'
+---| '"llvm"'
 ---
----
+---@class ToolchainOptions
+---@field toolchains? string[] Toolchain targets to install (e.g. {"arm-zephyr-eabi"})
+---@field hosttools? boolean Install host tools
+---@field cmake_pkg? boolean Register Zephyr SDK CMake package
+---@field family? ZephyrSdkToolchainFamily
 ---
 ---@class ToolchainBundle
 ---@field asset_name string
@@ -49,6 +52,19 @@
 ---@class ReleaseStore
 ---@field releases? table<Version, table>
 ---@field timestamp? number
+---
+---@class WestToolOptions
+---@field additional_requirements? table<string, Version>
+---@field ncs? boolean
+---@field freestanding? boolean
+---
+---@alias ToolOptions WestToolOptions|ToolchainOptions
+
+---@class ZephyrTool
+---@field list_versions? fun(): string[]
+---@field install fun(ctx:BackendInstallCtx, override?:ToolOptions):BackendInstallResult
+---@field envs fun(ctx:BackendExecEnvCtx, override?:ToolOptions):EnvKey[]
+
 ------------------------------------------------------------------------
 -- Globals
 ------------------------------------------------------------------------
@@ -88,13 +104,13 @@ RUNTIME = {}
 ---@field tool string Tool name
 ---@field version string Installed version
 ---@field install_path string Installation path
----@field options table Custom options from mise.toml
+---@field options? ToolchainOptions|WestToolOptions Custom options from mise.toml
 
 ---@class BackendExecEnvResult
 ---@field env_vars EnvKey[] Environment variables to set
 
 ---@class MiseEnvCtx
----@field options table Plugin options from mise.toml
+---@field options? ToolchainOptions|WestToolOptions Custom options from mise.toml
 
 ---@class MiseEnvResult
 ---@field env? EnvKey[] Environment variables to set
@@ -231,19 +247,19 @@ Utils.json = {}
 ---@field exists fun(path: string): boolean Check if a file exists
 ---@field symlink fun(src: string, dst: string) Create a symbolic link
 ---@field join_path fun(...: string): string Join path components
+---
+---
 
 ---@class Utils.fs : file
 ---@field parents fun(start: string): fun(): string? Walk up directory tree
 ---@field isdir fun(path: string): boolean
 ---@field isabspath fun(path: string): boolean
----@field fs_realpath fun(path: string): string? Resolve real path
 ---@field directory_exists fun(path: string): boolean Check if directory exists
 ---@field scandir fun(directory: string, opts?: ScanDirOpts): string[] List files in directory
 ---@field basename fun(file: string): string Get filename from path
 ---@field dirname fun(file: string): string Get parent directory from path
 ---@field path_exists fun(path: string, opts?: PathExistsOpts): boolean Check path existence
----@field Path fun(components: string|string[], opts?: PathOpts): string? Join and validate path
----@field normalize fun(path: string, opts?: table): string Normalize path
+---@field normalize fun(path:string,opts?:Utils.fs.normalize.Opts):string  Normalized path
 ---@field abspath fun(path: string): string Convert to absolute path
 ---@field relpath fun(base: string,target:string): string Convert to relative path
 Utils.fs = {}

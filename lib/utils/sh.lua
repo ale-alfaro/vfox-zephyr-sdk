@@ -38,14 +38,12 @@ function M.exec(exec_cmd, fail)
     Utils.dbg("sh.exec: " .. sh_cmd)
     local ok, result = pcall(cmd.exec, sh_cmd)
     if not ok then
-        Utils.err("Command failed: " .. sh_cmd)
-        if result then
-            for _, line in ipairs(Utils.strings.split(tostring(result), "\n")) do
-                Utils.err("  " .. line)
-            end
+        Utils.err("Command failed", { cmd = sh_cmd })
+        if type(result) == "string" then
+            Utils.err("stderr:  " .. result)
         end
         if fail then
-            error("Command failed: " .. sh_cmd)
+            assert(false)
         end
         return nil
     end

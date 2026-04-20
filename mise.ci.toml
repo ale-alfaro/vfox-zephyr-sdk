@@ -11,33 +11,13 @@ lua-language-server = "latest"
 description = "Lint Lua sources"
 run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP:-/tmp}/luals-log"'
 
-[tasks.smoke_test]
+[tasks.setup-test]
+hide = true
 run = '''
 #!/usr/bin/env zsh
 set -euo pipefail
-
-tools=(${(f)"$(<tests/tools.txt)"})
-print "Testing backend ${BACKEND:?}:"
-print -rl "${tools[@]}"
-
-for tool in "${tools[@]}"; do
-  arr=("${(s.:.)tool}")
-  name="${arr[1]}"
-  version="${arr[2]}"
-  cmd=(${arr[3]})
-  print -R "--- ${name}@${version} ---"
-
-  print "Testing version listing..."
-  mise ls-remote "${BACKEND}:${name}"
-
-  print "Executing: ${cmd[@]}"
-  mise x "${BACKEND}:${name}@${version}" -- ${=cmd[@]}
-done
-'''
-
-[tasks.setup_test]
-hide = true
-run = '''
+mise use -g uv
+mise plugins link "${BACKEND}" "${MISE_CONFIG_ROOT:?}" --force
 mkdir -p "${WORKSPACE?}/app"
 # ── Write minimal west manifest ────────────────────────────────────
 cat >"${WORKSPACE}/app/west.yml" <<YAML
@@ -56,49 +36,76 @@ manifest:
   self:
     path: app
 YAML
-mise x "${BACKEND}:west" -- west init -l "${WORKSPACE}/app"
-mkdir -p "${WEST_CACHE}"
-mise x "${BACKEND}:west" -- west config --global update.auto-cache "${WEST_CACHE}"
-mise x "${BACKEND}:west" -- west config --global update.narrow true
 '''
 
-[tasks.test_run]
+[tasks.smoke-test]
+run = '''
+#!/usr/bin/env zsh
+set -euo pipefail
+
+tools=(${(f)"$(<tests/tools.txt)"})
+print "Testing backend ${BACKEND:?}:"
+print -rl "${tools[@]}"
+
+typeset -a _misex
+for tool in "${tools[@]}"; do
+  arr=("${(s.:.)tool}")
+  name="${arr[1]}"
+  version="${arr[2]}"
+  cmd=(${arr[3]})
+  _misex=(mise x "${BACKEND}:${name}@${version}" '--')
+  print -R "--- ${name}@${version} ---"
+
+  print "Testing version listing..."
+  mise ls-remote "${BACKEND}:${name}"
+
+  print "Executing: ${cmd[@]}"
+  $_misex ${=cmd[@]}
+done
+'''
+
+[tasks.integration-test]
 hide = true
 dir = "{{ config_root }}/fake_workspace"
 env = { ZEPHYR_BASE = "{{config_root}}/fake_workspace/zephyr" }
 run = '''
+#!/usr/bin/env zsh
+set -euo pipefail
+typeset -a _west
+typeset -a west_config
+typeset -a west_build
+_west=(mise x "${BACKEND}:west" '--' west)
+west_config=($_west config)
+west_build=(mise x "${BACKEND}:west" "${BACKEND}:toolchain[toolchains='arm-zephyr-eabi']@${ZEPHYR_SDK_VERSION}" '--' west build)
+$_west init -l "${WORKSPACE}/app"
+mkdir -p "${WEST_CACHE}"
+$west_config --global update.auto-cache ${WEST_CACHE}"
+$west_config --global update.narrow true"
 echo "BACKEND=${BACKEND} ZEPHYR_SDK_VERSION=${ZEPHYR_SDK_VERSION}"
 # ── West init & update ─────────────────────────────────────────────
-mise x "${BACKEND}:west" -- west config manifest.project-filter "+cmsis.*"
-mise x "${BACKEND}:west" -- west config zephyr.base "${ZEPHYR_BASE}"
-mise x "${BACKEND}:west" -- west update --narrow --fetch-opt=--depth=1
-mise x "${BACKEND}:west" "${BACKEND}:toolchain[toolchains='arm-zephyr-eabi']@${ZEPHYR_SDK_VERSION}" -- west build -p -b native_sim -s zephyr/samples/hello_world -d build
+$west_config manifest.project-filter "+cmsis.*"
+$west_config zephyr.base "${ZEPHYR_BASE}"
+$_west update --narrow --fetch-opt=--depth=1
+$west_build -p -b native_sim -s zephyr/samples/hello_world -d build
 # ── Verify output ──────────────────────────────────────────────────
 echo "Integration test: zephyr.exe built successfully"
-
 '''
 
-[tasks.cleanup_test]
+[tasks.cleanup-test]
 hide = true
 run = '''
+#!/usr/bin/env zsh
+set -euo pipefail
 [[ -d "${WORKSPACE}" ]] && rm -rf "${WORKSPACE}"
-if mise plugins ls | grep "${BACKEND}"; then
-  mise remove "${BACKEND}"
-fi
 '''
-
-[tasks.integration_test]
-description = "Run integration test"
-run = [
-  { task = 'setup_test' },
-  { task = 'test_run' },
-  { task = 'cleanup_test' },
-]
 
 [tasks.ci]
 description = "Run all CI checks"
+tools = { uv = "latest" }
 run = [
   { task = 'lint' },
-  { task = 'smoke_test' },
-  { task = 'integration_test' },
+  { task = 'setup-test' },
+  { task = 'smoke-test' },
+  { task = 'integration-test' },
+  { task = 'cleanup-test' },
 ]
