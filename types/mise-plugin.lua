@@ -122,6 +122,7 @@ RUNTIME = {}
 
 ---@class Plugin
 ---@field name string Plugin name
+---@field depends? string[] Tools this plugin depends on (resolved by mise at install time)
 ---@field BackendListVersions? fun(self: Plugin, ctx: BackendListVersionsCtx): BackendListVersionsResult
 ---@field BackendInstall? fun(self: Plugin, ctx: BackendInstallCtx): BackendInstallResult
 ---@field BackendExecEnv? fun(self: Plugin, ctx: BackendExecEnvCtx): BackendExecEnvResult

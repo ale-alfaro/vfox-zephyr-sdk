@@ -4,7 +4,6 @@ WORKSPACE = "{{config_root}}/fake_workspace"
 WEST_CACHE = "{{config_root}}/.cache/west"
 
 [tools]
-uv = "latest"
 lua-language-server = "latest"
 
 [tasks.lint]
