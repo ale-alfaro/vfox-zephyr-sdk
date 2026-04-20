@@ -14,6 +14,8 @@ run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP
 [tasks.setup-test]
 hide = true
 run = '''
+#!/usr/bin/env zsh
+set -euo pipefail
 mise use -g uv
 mise plugins link "${BACKEND}" "${MISE_CONFIG_ROOT:?}" --force
 mkdir -p "${WORKSPACE?}/app"
@@ -92,6 +94,8 @@ echo "Integration test: zephyr.exe built successfully"
 [tasks.cleanup-test]
 hide = true
 run = '''
+#!/usr/bin/env zsh
+set -euo pipefail
 [[ -d "${WORKSPACE}" ]] && rm -rf "${WORKSPACE}"
 '''
 
