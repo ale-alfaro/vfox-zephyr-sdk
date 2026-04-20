@@ -39,6 +39,7 @@ YAML
 '''
 
 [tasks.smoke-test]
+hide = true
 run = '''
 #!/usr/bin/env zsh
 set -euo pipefail
@@ -58,7 +59,7 @@ for tool in "${tools[@]}"; do
 
   print "Testing version listing..."
   mise ls-remote "${BACKEND}:${name}"
-
+  mise use -g "${BACKEND}:${name}@${version}"
   print "Executing: ${cmd[@]}"
   $_misex ${=cmd[@]}
 done

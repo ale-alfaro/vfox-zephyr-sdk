@@ -99,7 +99,7 @@ function M.install(ctx)
         Utils.fs.join_path(plugin_path, "scripts", "requirements.in"),
     }
     if opts.ncs then
-        requirements_in[#requirements_in + 1] = Utils.fs.join_path(plugin_path, "scripts", "requirements_ncs.in")
+        requirements_in[#requirements_in + 1] = Utils.fs.join_path(plugin_path, "scripts", "requirements-ncs.in")
     end
     if type(opts.additional_requirements) == "table" or type(opts.additional_requirements) == "string" then
         Utils.inf("Adding additional dependencies: ", { reqs = opts.additional_requirements })
