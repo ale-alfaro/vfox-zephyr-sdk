@@ -75,7 +75,7 @@ typeset -a west_build
 _west=(mise x "${BACKEND}:west" '--' west)
 west_config=($_west config)
 west_build=(mise x "${BACKEND}:west" "${BACKEND}:toolchain[toolchains='arm-zephyr-eabi']@${ZEPHYR_SDK_VERSION}" '--' west build)
-$west init -l "${WORKSPACE}/app"
+$_west init -l "${WORKSPACE}/app"
 mkdir -p "${WEST_CACHE}"
 $west_config --global update.auto-cache ${WEST_CACHE}"
 $west_config --global update.narrow true"
@@ -83,7 +83,7 @@ echo "BACKEND=${BACKEND} ZEPHYR_SDK_VERSION=${ZEPHYR_SDK_VERSION}"
 # ── West init & update ─────────────────────────────────────────────
 $west_config manifest.project-filter "+cmsis.*"
 $west_config zephyr.base "${ZEPHYR_BASE}"
-$west update --narrow --fetch-opt=--depth=1
+$_west update --narrow --fetch-opt=--depth=1
 $west_build -p -b native_sim -s zephyr/samples/hello_world -d build
 # ── Verify output ──────────────────────────────────────────────────
 echo "Integration test: zephyr.exe built successfully"
