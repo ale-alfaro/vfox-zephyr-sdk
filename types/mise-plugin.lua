@@ -56,6 +56,7 @@
 ---@class WestToolOptions
 ---@field additional_requirements? table<string, Version>
 ---@field ncs? boolean
+---@field freestanding? boolean
 ---
 ---@alias ToolOptions WestToolOptions|ToolchainOptions
 

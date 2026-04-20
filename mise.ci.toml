@@ -4,6 +4,7 @@ WORKSPACE = "{{config_root}}/fake_workspace"
 WEST_CACHE = "{{config_root}}/.cache/west"
 
 [tools]
+uv = "latest"
 lua-language-server = "latest"
 
 [tasks.lint]
@@ -13,6 +14,7 @@ run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP
 [tasks.setup-test]
 hide = true
 run = '''
+mise use -g uv
 mise plugins link "${BACKEND}" "${MISE_CONFIG_ROOT:?}" --force
 mkdir -p "${WORKSPACE?}/app"
 # ── Write minimal west manifest ────────────────────────────────────
@@ -38,7 +40,6 @@ YAML
 run = '''
 #!/usr/bin/env zsh
 set -euo pipefail
-
 tools=(${(f)"$(<tests/tools.txt)"})
 print "Testing backend ${BACKEND:?}:"
 print -rl "${tools[@]}"

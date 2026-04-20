@@ -54,7 +54,14 @@ ZephyrSdk._tools_alias = {
     ["hosttools"] = "toolchain",
     ["ncs"] = "ncs_toolchain",
 }
+---@class ZephyrSdk.envs : EnvKey[]
+ZephyrSdk.envs = {}
 
+---@class ZephyrSdk.paths: string[]
+ZephyrSdk.paths = {}
+
+---@class ZephyrSdk.tool_options:  ToolOptions
+ZephyrSdk.tool_options = {}
 -- These are for loading runtime modules in the vim namespace lazily.
 setmetatable(ZephyrSdk, {
     --- @param t table<string,ZephyrTool>
