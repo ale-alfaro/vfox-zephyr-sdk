@@ -56,6 +56,7 @@
 ---@class WestToolOptions
 ---@field additional_requirements? table<string, Version>
 ---@field ncs? boolean
+---@field set_zephyr_base? boolean
 ---
 ---@alias ToolOptions WestToolOptions|ToolchainOptions
 

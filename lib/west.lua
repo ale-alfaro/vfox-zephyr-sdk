@@ -52,10 +52,17 @@ end
 --- Generates and installs the west shim script into the mise install path.
 --- Uses `uv add --script -r requirements.in` to resolve and inline all
 --- Python dependencies (including platform markers) at install time.
----@param ctx BackendInstallCtx The mise-provided install context
-function M.install(ctx)
-    local install_path = ctx.install_path
-    local opts = ctx.options or {} ---@as WestToolOptions
+---@param ctx BackendInstallCtx The mise-provided install path
+---@param opts? ToolOptions
+---@return BackendInstallResult
+function M.install(ctx, opts)
+    Utils.validate("ctx", ctx, "table")
+    Utils.validate("opts", opts, "table", true)
+    opts = opts or {}
+    local version, install_path, download_path = ctx.version, ctx.install_path, ctx.download_path
+    Utils.validate("version", version, "string")
+    Utils.validate("install_path", install_path, "string")
+    Utils.validate("download_path", download_path, "string")
     local plugin_path = Utils.sh.realpath(RUNTIME.pluginDirPath)
     if not plugin_path then
         error("Could not get plugin path")
@@ -134,31 +141,29 @@ end
 --- Returns environment variables for the west shim.
 --- Attempts to resolve ZEPHYR_BASE from: env var, west workspace, or directory scan.
 ---@param ctx BackendExecEnvCtx
+---@param opts? ToolOptions
 ---@return EnvKey[] env_vars Array of {key, value} tables
-function M.envs(ctx) -- luacheck: no unused args
-    local install_path = ctx.install_path
+function M.envs(ctx, opts)
+    Utils.validate("ctx", ctx, "table")
+    Utils.validate("opts", opts, "table", true)
     local uv = Utils.sh.which("uv")
     if not uv then
         error("UV must be installed")
     end
-
+    opts = opts or {}
     local env_vars = {
-        { key = "PATH", value = install_path },
+        { key = "PATH", value = ctx.install_path },
     }
-
     local zephyr_base_env = os.getenv("ZEPHYR_BASE")
-
-    if zephyr_base_env then
-        Utils.dbg("ZEPHYR_BASE already set. Exiting", { zephyr_base = zephyr_base_env })
-        return env_vars
-    end
-    local west = Utils.fs.join_path(install_path, "west")
-    zephyr_base_env = Utils.sh.exec({ uv, "run", "--script", west, "config", "zephyr.base" })
-        or find_zephyr_from_workspace()
-    if zephyr_base_env then
-        env_vars[#env_vars + 1] = { key = "ZEPHYR_BASE", value = zephyr_base_env }
-    else
-        Utils.inf("ZEPHYR_BASE could not be determined. Set it manually or run from inside a west workspace.")
+    if opts.set_zephyr_base and not zephyr_base_env then
+        local west = Utils.fs.join_path(ctx.install_path, "west")
+        zephyr_base_env = Utils.sh.exec({ uv, "run", "--script", west, "config", "zephyr.base" })
+            or find_zephyr_from_workspace()
+        if zephyr_base_env then
+            env_vars[#env_vars + 1] = { key = "ZEPHYR_BASE", value = zephyr_base_env }
+        else
+            Utils.inf("ZEPHYR_BASE could not be determined. Set it manually or run from inside a west workspace.")
+        end
     end
 
     return env_vars
