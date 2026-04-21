@@ -9,37 +9,58 @@ lua-language-server = "latest"
 description = "Lint Lua sources"
 run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP:-/tmp}/luals-log"'
 
+# Each file under tests/tools/ is a KV config (parsed entirely in Tera) that
+# declares: manifest, board, sample, toolchain, west, toolchain_probe, west_probe.
+# All shell commands are fully rendered here; the shell side only executes them.
 [tasks.test]
 sources = ["tests/tools/*"]
 run = '''
 #!/usr/bin/env zsh
 set -euo pipefail
-{% for file in task_source_files()  %}
-  {% set variant = file | basename  %}
+{% for file in task_source_files() %}
+  {% set variant = file | basename %}
   {% set backend = variant ~ '-' ~ get_random(end=255) %}
 
-  echo "Processing: {{variant}}"
-  mise plugins ln "{{backend}}" "{{config_root}}"
-  typeset -a tools
-  tools=()
-  {% for tool in read_file(path=file) | trim | split(pat='\n') %}
-    tool_name="{{backend}}:{{ tool }}"
-    mise ls-remote "${tool_name}"
-    {%if tool is containing("toolchain") %}
-      mise x "$tool_name" -- arm-zephyr-eabi-gcc --version
-    {%elif tool is matching("^\w+\[") %}
-      mise x "$tool_name" -- {{ tool | split(pat="[") | first }} --version
-    {%elif tool is matching("^\w+@") %}
-      mise x "$tool_name" -- {{ tool | split(pat='@') | first }} --version
-    {% else %}
-      mise x "$tool_name" -- {{ tool }} --version
+  {# Reset per-variant; set_global persists across loop iterations. #}
+  {% set_global manifest = "" %}
+  {% set_global board = "" %}
+  {% set_global sample = "" %}
+  {% set_global toolchain = "" %}
+  {% set_global west = "" %}
+  {% set_global toolchain_probe = "" %}
+  {% set_global west_probe = "" %}
+  {% for line in read_file(path=file) | trim | split(pat='\n') %}
+    {% set t = line | trim %}
+    {% if t != "" and t is not starting_with("#") %}
+      {% set kv = t | split(pat="=") %}
+      {% set k = kv | first | trim %}
+      {# Rejoin with '=' so values containing '=' (e.g. option syntax) survive. #}
+      {% set v = kv | slice(start=1) | join(sep="=") | trim %}
+      {% if k == "manifest" %}{% set_global manifest = v %}
+      {% elif k == "board" %}{% set_global board = v %}
+      {% elif k == "sample" %}{% set_global sample = v %}
+      {% elif k == "toolchain" %}{% set_global toolchain = v %}
+      {% elif k == "west" %}{% set_global west = v %}
+      {% elif k == "toolchain_probe" %}{% set_global toolchain_probe = v %}
+      {% elif k == "west_probe" %}{% set_global west_probe = v %}
+      {% endif %}
     {% endif %}
-    tools+=("$tool_name")
   {% endfor %}
 
+  echo "=== Variant: {{ variant }} (backend={{ backend }}, manifest={{ manifest }}) ==="
+  mise plugins ln '{{ backend }}' '{{ config_root }}'
+
+  mise ls-remote '{{ backend }}:{{ toolchain }}'
+  mise ls-remote '{{ backend }}:{{ west }}'
+  mise x '{{ backend }}:{{ toolchain }}' -- {{ toolchain_probe }} --version
+  mise x '{{ backend }}:{{ west }}' -- {{ west_probe }} --version
+
   mkdir -p ~/.cache/west
-  mkdir -p {{variant}}-workspace/app
-  cp tests/{{variant}}-manifest.yml {{variant}}-workspace/app/west.yml
-  BACKEND="{{backend}}" mise run --cd {{variant}}-workspace integration-test ${tools[@]}
+  mkdir -p {{ variant }}-workspace/app
+  cp tests/{{ manifest }}-manifest.yml {{ variant }}-workspace/app/west.yml
+
+  BACKEND='{{ backend }}' BOARD='{{ board }}' SAMPLE='{{ sample }}' \
+    mise run --cd {{ variant }}-workspace integration-test \
+      '{{ backend }}:{{ toolchain }}' '{{ backend }}:{{ west }}'
 {% endfor %}
 '''
