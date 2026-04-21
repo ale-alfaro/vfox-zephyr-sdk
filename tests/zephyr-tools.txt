@@ -1,0 +1,2 @@
+toolchain[toolchains="arm-zephyr-eabi"]@0.17.4
+west@1.5.0

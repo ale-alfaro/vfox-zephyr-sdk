@@ -10,25 +10,30 @@ jobs:
   ci:
     strategy:
       matrix:
-        zephyr_sdk_version: ["0.17.4"]
+        zephyr_variant: ["zephyr", "ncs"]
     runs-on: ubuntu-latest
     env:
-      BACKEND: zephyr-ci-${{ github.run_id }}
-      ZEPHYR_SDK_VERSION: ${{ matrix.zephyr_sdk_version }}
+      WEST_CACHE: .cache/west
+      MISE_ENV: ci
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
         with:
           experimental: true
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh gcc-multilib g++-multilib device-tree-compiler
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh
+          gcc-multilib g++-multilib device-tree-compiler
+      - name: Lua typecheck and linting
+        run: mise run lint
       - name: Cache west repositories
         uses: actions/cache@v4
         with:
           path: .cache/west
-          key: west-${{ matrix.zephyr_sdk_version }}-${{ hashFiles('mise.ci.toml') }}
+          key: west-${{ hashFiles('mise.ci.toml') }}
           restore-keys: |
-            west-${{ matrix.zephyr_sdk_version }}-
+            west-${{ matrix.zephyr_variant }}-
             west-
-      - run: |
-          mise -E ci run ci --continue-on-error --timeout 10m --jobs 4
+      - name: Run tests
+        env:
+          BACKEND: ${{matrix.zephyr_variant}}
+        run: mise run-test --timeout 10m
