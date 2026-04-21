@@ -27,8 +27,12 @@ set -euo pipefail
     mise ls-remote "${tool_name}"
     {%if tool is containing("toolchain") %}
       mise x "$tool_name" -- arm-zephyr-eabi-gcc --version
-    {% else %}
+    {%elif tool is matching("^\w+\[") %}
+      mise x "$tool_name" -- {{ tool | split(pat="[") | first }} --version
+    {%elif tool is matching("^\w+@") %}
       mise x "$tool_name" -- {{ tool | split(pat='@') | first }} --version
+    {% else %}
+      mise x "$tool_name" -- {{ tool }} --version
     {% endif %}
     tools+=("$tool_name")
   {% endfor %}
