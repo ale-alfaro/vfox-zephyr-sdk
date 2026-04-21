@@ -37,7 +37,7 @@ set -euo pipefail
     tools+=("$tool_name")
   {% endfor %}
 
-  mkdir -p "${WEST_CACHE?}"
+  mkdir -p ~/.cache/west
   mkdir -p {{variant}}-workspace/app
   cp tests/{{variant}}-manifest.yml {{variant}}-workspace/app/west.yml
   BACKEND="{{backend}}" mise run --cd {{variant}}-workspace integration-test ${tools[@]}

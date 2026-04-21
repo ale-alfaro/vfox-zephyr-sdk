@@ -14,7 +14,7 @@ echo "BACKEND=${BACKEND:?BACKEND must be set}"
 _west=(mise x "${WEST_TOOL}" '--' west)
 _west_build=(mise x "${WEST_TOOL}" "${TOOLCHAIN_TOOL}" '--' west build)
 $_west init -l app
-$_west update -o=--depth=1 --narrow --auto-cache "${WEST_CACHE}"
+$_west update -o=--depth=1 --narrow --auto-cache ~/.cache/west
 if [[ ${BACKEND} == ncs ]]; then
   $_west_build -p -b nrf52840dk/nrf52840 nrf/samples/mcuboot/firmware_loader_entrance
 else

@@ -10,7 +10,6 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     env:
-      WEST_CACHE: .cache/west
       MISE_ENV: ci
     steps:
       - uses: actions/checkout@v6
@@ -22,10 +21,12 @@ jobs:
           gcc-multilib g++-multilib device-tree-compiler
       - name: Lua typecheck and linting
         run: mise run lint
-      - name: Cache west repositories
+      - name: Cache
         uses: actions/cache@v4
         with:
-          path: .cache/west
-          key: west-${{ hashFiles('mise.ci.toml') }}
+          path: |
+            ~/.cache/west
+            ~/.local/share/mise
+          key: ${{ runner.os }}-west-${{ hashFiles('mise.ci.toml') }}
       - name: Run tests
         run: mise run test --timeout 10m
