@@ -2,25 +2,8 @@
 local M = {}
 
 ---@class M.toolchains : table<string, string>
-M.GnuToolchainTypes = {
-    ["aarch64"] = "aarch64-zephyr-elf",
-    ["arc64"] = "arc64-zephyr-elf",
-    ["arc"] = "arc-zephyr-elf",
-    ["arm-zephyr-eabi"] = "arm-zephyr-eabi",
-    ["microblazeel"] = "microblazeel-zephyr-elf",
-    ["mips"] = "mips-zephyr-elf",
-    ["nios2"] = "nios2-zephyr-elf",
-    ["riscv64"] = "riscv64-zephyr-elf",
-    ["rx"] = "rx-zephyr-elf",
-    ["sparc"] = "sparc-zephyr-elf",
-    ["x86_64"] = "x86_64-zephyr-elf",
-}
 
-M.LlvmToolchainTypes = {
-    ["llvm"] = "llvm",
-}
 local GITHUB_REPO = "zephyrproject-rtos/sdk-ng"
-
 local MIN_VERSION = "0.17.0"
 local MAX_VERSION = "1.1.0"
 local STORE_KEY = "zephyr_minimal_toolchains"
@@ -79,18 +62,24 @@ end
 local function parse_toolchain_options(opts)
     Utils.inf("Parsing opts:", { opts = opts })
     local tc_opts = Utils.tbl_extend("force", {
-
         toolchains = {},
         hosttools = false,
         cmake_pkg = false,
         family = "zephyr",
     }, opts or {})
-    if tc_opts.toolchains then
+    -- `toolchains` may arrive as a delimited string (from mise option syntax)
+    -- or as a pre-normalized list (from the alias wrapper). Normalize to a list.
+    local raw = tc_opts.toolchains
+    if type(raw) == "string" then
         local toolchains = {}
-        for tc in string.gmatch(tostring(tc_opts.toolchains), "[%w%-_]+") do
+        for tc in
+            string.gmatch(raw --[[@as string]], "[%w%-_]+")
+        do
             toolchains[#toolchains + 1] = tc
         end
         tc_opts.toolchains = toolchains
+    elseif type(raw) ~= "table" then
+        tc_opts.toolchains = {}
     end
     return tc_opts
 end
@@ -110,25 +99,27 @@ local function run_setup(sdk_root, opts)
     if not Utils.fs.path_exists(setup_sh, { type = "file" }) then
         Utils.fatal("setup.sh not found after extraction", { sdk_root = sdk_root })
     end
-    local cmd = setup_sh
-    local toolchains = Utils.ensure_list(opts.toolchains) or {} ---@type string[]
-    if toolchains then
-        for _, tc in ipairs(toolchains) do
-            cmd = cmd .. " -t " .. " " .. tc
+    local cmd = { setup_sh } ---@as string[]
+    if opts.toolchains then
+        for _, tc in ipairs(opts.toolchains) do
+            cmd[#cmd + 1] = "-t "
+            cmd[#cmd + 1] = tc
         end
     end
     if opts.hosttools then
-        cmd = cmd .. " -h"
+        cmd[#cmd + 1] = "-h"
     end
     if opts.cmake_pkg then
-        cmd = cmd .. " -c"
+        cmd[#cmd + 1] = "-c"
     end
 
     if #cmd <= 1 then
-        cmd = cmd .. " -?"
+        cmd = { setup_sh, " -?" }
     end
     Utils.dbg("Running Zephyr SDK setup", { cmd = cmd })
-    return os.execute(cmd)
+    Utils.sh.exec({ "chmod", "+x", setup_sh })
+    local out = Utils.sh.exec(cmd)
+    return (out ~= nil) and 0 or -1
 end
 
 --- Installs a specific version of nrfutil (launcher + pinned core module).
