@@ -1,7 +1,5 @@
 [env]
 MISE_USE_VERSIONS_HOST = "0"
-WORKSPACE = "{{config_root}}/fake_workspace"
-WEST_CACHE = "{{config_root}}/.cache/west"
 
 [tools]
 uv = "latest"
@@ -11,101 +9,37 @@ lua-language-server = "latest"
 description = "Lint Lua sources"
 run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP:-/tmp}/luals-log"'
 
-[tasks.setup-test]
-hide = true
+[tasks.test]
+sources = ["tests/tools/*"]
 run = '''
 #!/usr/bin/env zsh
 set -euo pipefail
-mise use -g uv
-mise plugins link "${BACKEND}" "${MISE_CONFIG_ROOT:?}" --force
-mkdir -p "${WORKSPACE?}/app"
-# ── Write minimal west manifest ────────────────────────────────────
-cat >"${WORKSPACE}/app/west.yml" <<YAML
-manifest:
-  remotes:
-    - name: zephyrproject-rtos
-      url-base: https://github.com/zephyrproject-rtos
-  projects:
-    - name: zephyr
-      remote: zephyrproject-rtos
-      revision: v4.3.0
-      clone-depth: 1
-      import:
-        name-allowlist:
-          - cmsis
-  self:
-    path: app
-YAML
+{% for file in task_source_files()  %}
+  {% set variant = file | basename  %}
+  {% set backend = variant ~ '-' ~ get_random(end=255) %}
+
+  echo "Processing: {{variant}}"
+  mise plugins ln "{{backend}}" "{{config_root}}"
+  typeset -a tools
+  tools=()
+  {% for tool in read_file(path=file) | trim | split(pat='\n') %}
+    tool_name="{{backend}}:{{ tool }}"
+    mise ls-remote "${tool_name}"
+    {%if tool is containing("toolchain") %}
+      mise x "$tool_name" -- arm-zephyr-eabi-gcc --version
+    {%elif tool is matching("^\w+\[") %}
+      mise x "$tool_name" -- {{ tool | split(pat="[") | first }} --version
+    {%elif tool is matching("^\w+@") %}
+      mise x "$tool_name" -- {{ tool | split(pat='@') | first }} --version
+    {% else %}
+      mise x "$tool_name" -- {{ tool }} --version
+    {% endif %}
+    tools+=("$tool_name")
+  {% endfor %}
+
+  mkdir -p ~/.cache/west
+  mkdir -p {{variant}}-workspace/app
+  cp tests/{{variant}}-manifest.yml {{variant}}-workspace/app/west.yml
+  BACKEND="{{backend}}" mise run --cd {{variant}}-workspace integration-test ${tools[@]}
+{% endfor %}
 '''
-
-[tasks.smoke-test]
-run = '''
-#!/usr/bin/env zsh
-set -euo pipefail
-
-tools=(${(f)"$(<tests/tools.txt)"})
-print "Testing backend ${BACKEND:?}:"
-print -rl "${tools[@]}"
-
-typeset -a _misex
-for tool in "${tools[@]}"; do
-  arr=("${(s.:.)tool}")
-  name="${arr[1]}"
-  version="${arr[2]}"
-  cmd=(${arr[3]})
-  _misex=(mise x "${BACKEND}:${name}@${version}" '--')
-  print -R "--- ${name}@${version} ---"
-
-  print "Testing version listing..."
-  mise ls-remote "${BACKEND}:${name}"
-
-  print "Executing: ${cmd[@]}"
-  $_misex ${=cmd[@]}
-done
-'''
-
-[tasks.integration-test]
-hide = true
-dir = "{{ config_root }}/fake_workspace"
-env = { ZEPHYR_BASE = "{{config_root}}/fake_workspace/zephyr" }
-run = '''
-#!/usr/bin/env zsh
-set -euo pipefail
-typeset -a _west
-typeset -a west_config
-typeset -a west_build
-_west=(mise x "${BACKEND}:west" '--' west)
-west_config=($_west config)
-west_build=(mise x "${BACKEND}:west" "${BACKEND}:toolchain[toolchains='arm-zephyr-eabi']@${ZEPHYR_SDK_VERSION}" '--' west build)
-$_west init -l "${WORKSPACE}/app"
-mkdir -p "${WEST_CACHE}"
-$west_config --global update.auto-cache ${WEST_CACHE}"
-$west_config --global update.narrow true"
-echo "BACKEND=${BACKEND} ZEPHYR_SDK_VERSION=${ZEPHYR_SDK_VERSION}"
-# ── West init & update ─────────────────────────────────────────────
-$west_config manifest.project-filter "+cmsis.*"
-$west_config zephyr.base "${ZEPHYR_BASE}"
-$_west update --narrow --fetch-opt=--depth=1
-$west_build -p -b native_sim -s zephyr/samples/hello_world -d build
-# ── Verify output ──────────────────────────────────────────────────
-echo "Integration test: zephyr.exe built successfully"
-'''
-
-[tasks.cleanup-test]
-hide = true
-run = '''
-#!/usr/bin/env zsh
-set -euo pipefail
-[[ -d "${WORKSPACE}" ]] && rm -rf "${WORKSPACE}"
-'''
-
-[tasks.ci]
-description = "Run all CI checks"
-tools = { uv = "latest" }
-run = [
-  { task = 'lint' },
-  { task = 'setup-test' },
-  { task = 'smoke-test' },
-  { task = 'integration-test' },
-  { task = 'cleanup-test' },
-]

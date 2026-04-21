@@ -8,27 +8,25 @@ on:
   workflow_dispatch:
 jobs:
   ci:
-    strategy:
-      matrix:
-        zephyr_sdk_version: ["0.17.4"]
     runs-on: ubuntu-latest
     env:
-      BACKEND: zephyr-ci-${{ github.run_id }}
-      ZEPHYR_SDK_VERSION: ${{ matrix.zephyr_sdk_version }}
+      MISE_ENV: ci
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
         with:
           experimental: true
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh gcc-multilib g++-multilib device-tree-compiler
-      - name: Cache west repositories
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh
+          gcc-multilib g++-multilib device-tree-compiler
+      - name: Lua typecheck and linting
+        run: mise run lint
+      - name: Cache
         uses: actions/cache@v4
         with:
-          path: .cache/west
-          key: west-${{ matrix.zephyr_sdk_version }}-${{ hashFiles('mise.ci.toml') }}
-          restore-keys: |
-            west-${{ matrix.zephyr_sdk_version }}-
-            west-
-      - run: |
-          mise -E ci run ci --continue-on-error --timeout 10m --jobs 4
+          path: |
+            ~/.cache/west
+            ~/.local/share/mise
+          key: ${{ runner.os }}-west-${{ hashFiles('mise.ci.toml') }}
+      - name: Run tests
+        run: mise run test --timeout 10m

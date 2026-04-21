@@ -99,7 +99,7 @@ function M.install(ctx)
         Utils.fs.join_path(plugin_path, "scripts", "requirements.in"),
     }
     if opts.ncs then
-        requirements_in[#requirements_in + 1] = Utils.fs.join_path(plugin_path, "scripts", "requirements_ncs.in")
+        requirements_in[#requirements_in + 1] = Utils.fs.join_path(plugin_path, "scripts", "requirements-ncs.in")
     end
     if type(opts.additional_requirements) == "table" or type(opts.additional_requirements) == "string" then
         Utils.inf("Adding additional dependencies: ", { reqs = opts.additional_requirements })
@@ -137,10 +137,9 @@ function M.envs(ctx) -- luacheck: no unused args
     local env_vars = {
         { key = "PATH", value = install_path },
     }
-    local ok = os.execute(Utils.fs.join_path(install_path, "west") .. " topdir 2>/dev/null")
     local zephyr_base_env = os.getenv("ZEPHYR_BASE")
 
-    if ok ~= 0 and not zephyr_base_env and not opts.freestanding then
+    if not zephyr_base_env and not opts.freestanding then
         Utils.wrn([[West workspace not detected and no ZEPHYR_BASE is set.
   West wont be able to access most commands unless you set this variable
   If you are in a workspace you should set ZEPHYR_BASE to the path of the zephyr repo in the workspace.

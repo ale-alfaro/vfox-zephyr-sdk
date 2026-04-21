@@ -1,0 +1,29 @@
+#!/usr/bin/env zsh
+#MISE description="Integration test - build a NCS sample with the NCS toolchain"
+#MISE hide=true
+#MISE dir="{{cwd}}"
+#USAGE arg "<toolchain>" help="Toolchain to test"
+#USAGE arg "<west>" help="West tool to test"
+set -euo pipefail
+TOOLCHAIN_TOOL="${usage_toolchain?}"
+WEST_TOOL="${usage_west?}"
+echo "TOOLCHAIN_TOOL=${TOOLCHAIN_TOOL:?TOOLCHAIN_TOOL must be set}"
+echo "WEST_TOOL=${WEST_TOOL:?WEST_TOOL must be set}"
+echo "BACKEND=${BACKEND:?BACKEND must be set}"
+# ── West init & update ─────────────────────────────────────────────
+_west=(mise x "${WEST_TOOL}" '--' west)
+_west_build=(mise x "${WEST_TOOL}" "${TOOLCHAIN_TOOL}" '--' west build)
+$_west init -l app
+$_west update -o=--depth=1 --narrow --auto-cache ~/.cache/west
+if [[ ${BACKEND} == ncs ]]; then
+  $_west_build -p -b nrf52840dk/nrf52840 nrf/samples/mcuboot/firmware_loader_entrance
+else
+  $_west_build -p -b native_sim -s zephyr/samples/hello_world -d build
+fi
+# ── Verify output ──────────────────────────────────────────────────
+if [[ -d build ]]; then
+  echo "Integration test: build succeeded"
+else
+  echo "Integration test: build directory not found"
+  exit 1
+fi

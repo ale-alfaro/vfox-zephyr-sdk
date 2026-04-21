@@ -1,7 +1,42 @@
----@nodoc
----@diagnostic disable-next-line: missing-fields
-_G.Utils = _G.Utils or {} --[[@as Utils]]
+---@class Utils
+_G.Utils = _G.Utils or {}
 
+--- nrfutil launcher download URLs keyed by platform
+---@class Utils
+---@module 'utils.inspect'
+---@module 'utils.fs'
+---@module 'utils.sh'
+---@module 'utils.net'
+---@module 'strings'
+---@module 'semver'
+Utils._submodules = {
+    inspect = true,
+    fs = true,
+    sh = true,
+    net = true,
+    store = true,
+    semver = true,
+}
+
+Utils._mise_submods = {
+    strings = true,
+    file = true,
+    http = true,
+    cmd = true,
+}
+-- These are for loading runtime modules in the vim namespace lazily.
+setmetatable(Utils, {
+    --- @param t table<any,any>
+    __index = function(t, key)
+        if Utils._submodules[key] then
+            t[key] = require("utils." .. key)
+            return t[key]
+        elseif Utils._mise_submods[key] then
+            t[key] = require(key)
+            return t[key]
+        end
+    end,
+})
 --- Returns the current OS name lowercased.
 ---@return string
 function Utils.os()

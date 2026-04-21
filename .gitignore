@@ -22,4 +22,4 @@ zephyr-sdk-*
 
 # Test isolation
 .test-mise-data/
-fake_workspace/
+*-fake-workspace/
