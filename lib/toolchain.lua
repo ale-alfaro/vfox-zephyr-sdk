@@ -144,11 +144,6 @@ function M.install(ctx, opts)
     Utils.validate("install_path", install_path, "string")
     Utils.validate("download_path", download_path, "string")
     local toolchain_opts = parse_toolchain_options(opts)
-    if toolchain_opts.family == "ncs" then
-        --- we install it like we do using NCS
-        Utils.inf("ncs passed as an option for toolchain family")
-        return ZephyrSdk.ncs_toolchain(ctx, opts)
-    end
     local asset = Utils.store.fetch_asset_bundles(STORE_KEY, version)
 
     if not asset then
