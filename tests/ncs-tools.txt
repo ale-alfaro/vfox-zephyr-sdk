@@ -1,2 +1,0 @@
-ncs_toolchain@3.2.1
-west[ncs="true"]@1.5.0

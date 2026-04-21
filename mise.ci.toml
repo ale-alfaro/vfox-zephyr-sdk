@@ -1,6 +1,5 @@
 [env]
 MISE_USE_VERSIONS_HOST = "0"
-WORKSPACE = "${BACKEND?}-fake-workspace"
 
 [tools]
 uv = "latest"
@@ -10,33 +9,33 @@ lua-language-server = "latest"
 description = "Lint Lua sources"
 run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP:-/tmp}/luals-log"'
 
-[tasks.setup_workspace]
-run = '''
-mkdir -p "${WEST_CACHE?}"
-mkdir -p "${WORKSPACE?}/app"
-cp tests/${BACKEND}-manifest.yml "${WORKSPACE}/app/west.yml"
-
-'''
-
-[tasks.run-test]
+[tasks.test]
+sources = ["tests/tools/*"]
 run = '''
 #!/usr/bin/env zsh
 set -euo pipefail
-mise plugins link "${BACKEND?}" "${MISE_CONFIG_ROOT:?}"
+{% for file in task_source_files()  %}
+  {% set variant = file | basename  %}
+  {% set backend = variant ~ '-' ~ get_random(end=255) %}
 
-cleanup(){
-  [[ -d "${WORKSPACE}" ]] && rm -rf "${WORKSPACE}"
-}
-trap cleanup EXIT
+  echo "Processing: {{variant}}"
+  mise plugins ln "{{backend}}" "{{config_root}}"
+  typeset -a tools
+  tools=()
+  {% for tool in read_file(path=file) | trim | split(pat='\n') %}
+    tool_name="{{backend}}:{{ tool }}"
+    mise ls-remote "${tool_name}"
+    {%if tool is containing("toolchain") %}
+      mise x "$tool_name" -- arm-zephyr-eabi-gcc --version
+    {% else %}
+      mise x "$tool_name" -- {{ tool | split(pat='@') | first }} --version
+    {% endif %}
+    tools+=("$tool_name")
+  {% endfor %}
 
-print "Testing ${BACKEND}"
-tools=(${(f)"$(<tests/${BACKEND}-tools.txt)"})
-print -rl "${tools[@]}"
-export TOOLCHAIN_TOOL="${BACKEND}:${tools[1]}"
-export WEST_TOOL="${BACKEND}:${tools[2]}"
-mise ls-remote "${TOOLCHAIN_TOOL}"
-mise ls-remote "${WEST_TOOL}"
-mise x "${TOOLCHAIN_TOOL}" -- arm-zephyr-eabi-gcc --version
-mise x "${WEST_TOOL}" -- west --version
-mise run --cd "${WORKSPACE}" integration-test
+  mkdir -p "${WEST_CACHE?}"
+  mkdir -p {{variant}}-workspace/app
+  cp tests/{{variant}}-manifest.yml {{variant}}-workspace/app/west.yml
+  BACKEND="{{backend}}" mise run --cd {{variant}}-workspace integration-test ${tools[@]}
+{% endfor %}
 '''

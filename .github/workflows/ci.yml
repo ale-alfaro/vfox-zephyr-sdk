@@ -8,9 +8,6 @@ on:
   workflow_dispatch:
 jobs:
   ci:
-    strategy:
-      matrix:
-        zephyr_variant: ["zephyr", "ncs"]
     runs-on: ubuntu-latest
     env:
       WEST_CACHE: .cache/west
@@ -30,10 +27,5 @@ jobs:
         with:
           path: .cache/west
           key: west-${{ hashFiles('mise.ci.toml') }}
-          restore-keys: |
-            west-${{ matrix.zephyr_variant }}-
-            west-
       - name: Run tests
-        env:
-          BACKEND: ${{matrix.zephyr_variant}}
-        run: mise run-test --timeout 10m
+        run: mise run test --timeout 10m

@@ -2,8 +2,13 @@
 #MISE description="Integration test - build a NCS sample with the NCS toolchain"
 #MISE hide=true
 #MISE dir="{{cwd}}"
+#USAGE arg "<toolchain>" help="Toolchain to test"
+#USAGE arg "<west>" help="West tool to test"
 set -euo pipefail
-
+TOOLCHAIN_TOOL="${usage_toolchain?}"
+WEST_TOOL="${usage_west?}"
+echo "TOOLCHAIN_TOOL=${TOOLCHAIN_TOOL:?TOOLCHAIN_TOOL must be set}"
+echo "WEST_TOOL=${WEST_TOOL:?WEST_TOOL must be set}"
 echo "BACKEND=${BACKEND:?BACKEND must be set}"
 # ── West init & update ─────────────────────────────────────────────
 _west=(mise x "${WEST_TOOL}" '--' west)
