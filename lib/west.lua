@@ -150,17 +150,23 @@ function M.envs(ctx) -- luacheck: no unused args
     local env_vars = {
         { key = "PATH", value = install_path },
     }
-    local zephyr_base_env = os.getenv("ZEPHYR_BASE")
-    local westtopdir = Utils.sh.exec({ Utils.fs.join_path(install_path, "west"), "topdir" }, { silent = true })
-
-    if not zephyr_base_env or westtopdir then
-        Utils.wrn([[West workspace not detected and no ZEPHYR_BASE is set.
-  West wont be able to access most commands unless you set this variable
-  If you are in a workspace you should set ZEPHYR_BASE to the path of the zephyr repo in the workspace.
-  If you know what you are doing and want to silence this warning set the following option in the mise.toml:
-  [env]
-  ZEPHYR_BASE="{{config_root | dirname}}/zephyr"
-                  ]])
+    local west_topdir_check = Utils.sh.exec(
+        { Utils.fs.join_path(install_path, "west"), "-qqq", "topdir" },
+        { silent = true }
+    )
+    local west_config_check = Utils.sh.exec(
+        { Utils.fs.join_path(install_path, "west"), "-qqq", "config", "zephyr.base", "--local" },
+        { silent = true }
+    )
+    if west_topdir_check and west_config_check then
+        local west_config_zephyr_base = Utils.sh.exec(
+            { Utils.fs.join_path(install_path, "west"), "config", "zephyr.base", "--local" },
+            { fail = true }
+        )
+        Utils.inf("Setting Zephyr Base")
+        Utils.list_extend(env_vars, {
+            { key = "ZEPHYR_BASE", value = west_config_zephyr_base },
+        })
     end
 
     return env_vars
