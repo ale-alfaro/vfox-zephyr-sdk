@@ -21,7 +21,7 @@ run = '''
   {% set backend = vars.variant ~ '-' ~ get_random(end=255) %}
   {% set manifest = vars.variant ~ '-manifest' %}
   {% set workspace = vars.variant ~ '-workspace' %}
-  {% set toolchain = backend  ~ ':' ~ vars.toolchain %}
+  {% if vars.toolchain_alias is defined %}{% set toolchain = backend ~ ':' ~ vars.toolchain_alias %}{% else %}{% set toolchain = backend  ~ ':' ~ vars.toolchain %}{% endif %}
   {% set west = backend  ~ ':' ~ vars.west %}
   echo "=== Backend {{ backend }} ==="
   mise plugins ln '{{ backend }}' "{{config_root}}"
@@ -65,11 +65,16 @@ run = '''
 extends = "test:script"
 
 [tasks.zephyr_alias_test]
-vars.'_' = { file = "{{config_root}}/tests/configs/alias.env" }
+vars = { toolchain_alias = "arm@0.17.4" }
 extends = "test:script"
 
 [tasks.ncs_test]
 vars.'_' = { file = "{{config_root}}/tests/configs/ncs.env" }
+extends = "test:script"
+
+[tasks.ncs_alias_test]
+vars.'_' = { file = "{{config_root}}/tests/configs/ncs.env" }
+vars.toolchain_alias = "arm@0.17.0"
 extends = "test:script"
 
 [tasks.test]
@@ -77,4 +82,5 @@ run = [
   { task = "zephyr_test" },
   { task = "zephyr_alias_test" },
   { task = "ncs_test" },
+  { task = "ncs_alias_test" },
 ]

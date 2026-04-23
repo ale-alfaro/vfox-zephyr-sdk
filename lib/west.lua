@@ -130,13 +130,18 @@ function M.install(ctx)
         west_script,
         unpack(requirement_flags),
     }, { fail = true })
+    Utils.sh.exec({
+        uv,
+        "lock",
+        "--script",
+        west_script,
+    }, { fail = true })
     edit_west_script(west_script)
     Utils.sh.chmod("+x", west_script)
     Utils.inf("Installed west shim", { script = west_script })
 end
 
 --- Returns environment variables for the west shim.
---- Attempts to resolve ZEPHYR_BASE from: env var, west workspace, or directory scan.
 ---@param ctx BackendExecEnvCtx
 ---@return EnvKey[] env_vars Array of {key, value} tables
 function M.envs(ctx) -- luacheck: no unused args
