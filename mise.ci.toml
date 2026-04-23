@@ -3,64 +3,78 @@ MISE_USE_VERSIONS_HOST = "0"
 
 [tools]
 uv = "latest"
+cmake = "latest"
 lua-language-server = "latest"
+
+[vars]
+_.file = "{{config_root}}/tests/configs/zephyr.env"
 
 [tasks.lint]
 description = "Lint Lua sources"
 run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP:-/tmp}/luals-log"'
 
-# Each file under tests/tools/ is a KV config (parsed entirely in Tera) that
-# declares: manifest, board, sample, toolchain, west, toolchain_probe, west_probe.
-# All shell commands are fully rendered here; the shell side only executes them.
-[tasks.test]
-sources = ["tests/tools/*"]
+[task_templates."test:script"]
 run = '''
 #!/usr/bin/env zsh
-set -euo pipefail
-{% for file in task_source_files() %}
-  {% set variant = file | basename %}
-  {% set backend = variant ~ '-' ~ get_random(end=255) %}
 
-  {# Reset per-variant; set_global persists across loop iterations. #}
-  {% set_global manifest = "" %}
-  {% set_global board = "" %}
-  {% set_global sample = "" %}
-  {% set_global toolchain = "" %}
-  {% set_global west = "" %}
-  {% set_global toolchain_probe = "" %}
-  {% set_global west_probe = "" %}
-  {% for line in read_file(path=file) | trim | split(pat='\n') %}
-    {% set t = line | trim %}
-    {% if t != "" and t is not starting_with("#") %}
-      {% set kv = t | split(pat="=") %}
-      {% set k = kv | first | trim %}
-      {# Rejoin with '=' so values containing '=' (e.g. option syntax) survive. #}
-      {% set v = kv | slice(start=1) | join(sep="=") | trim %}
-      {% if k == "manifest" %}{% set_global manifest = v %}
-      {% elif k == "board" %}{% set_global board = v %}
-      {% elif k == "sample" %}{% set_global sample = v %}
-      {% elif k == "toolchain" %}{% set_global toolchain = v %}
-      {% elif k == "west" %}{% set_global west = v %}
-      {% elif k == "toolchain_probe" %}{% set_global toolchain_probe = v %}
-      {% elif k == "west_probe" %}{% set_global west_probe = v %}
-      {% endif %}
-    {% endif %}
-  {% endfor %}
+{% macro generate_test_script() %}
+  {% set backend = vars.variant ~ '-' ~ get_random(end=255) %}
+  {% set manifest = vars.variant ~ '-manifest' %}
+  {% set workspace = vars.variant ~ '-workspace' %}
+  {% set toolchain = backend  ~ ':' ~ vars.toolchain %}
+  {% set west = backend  ~ ':' ~ vars.west %}
+  echo "=== Backend {{ backend }} ==="
+  mise plugins ln '{{ backend }}' "{{config_root}}"
 
-  echo "=== Variant: {{ variant }} (backend={{ backend }}, manifest={{ manifest }}) ==="
-  mise plugins ln '{{ backend }}' '{{ config_root }}'
-
-  mise ls-remote '{{ backend }}:{{ toolchain }}'
-  mise ls-remote '{{ backend }}:{{ west }}'
-  mise x '{{ backend }}:{{ toolchain }}' -- {{ toolchain_probe }} --version
-  mise x '{{ backend }}:{{ west }}' -- {{ west_probe }} --version
+  mise ls-remote "{{toolchain}}"
+  mise ls-remote "{{west}}"
+  mise x "{{toolchain}}" -- arm-zephyr-eabi-gcc --version
+  mise x "{{west}}" -- west --version
 
   mkdir -p ~/.cache/west
-  mkdir -p {{ variant }}-workspace/app
-  cp tests/{{ manifest }}-manifest.yml {{ variant }}-workspace/app/west.yml
+  mkdir -p {{workspace}}/app
+  cp tests/{{ manifest }}.yml {{ workspace}}/app/west.yml
 
-  BACKEND='{{ backend }}' BOARD='{{ board }}' SAMPLE='{{ sample }}' \
-    mise run --cd {{ variant }}-workspace integration-test \
-      '{{ backend }}:{{ toolchain }}' '{{ backend }}:{{ west }}'
-{% endfor %}
+  _west=(mise x '--cd'  {{ workspace }} "{{west}}" '--' west)
+  _west_build=(mise x '--cd' {{ workspace }} "{{ west}}" "{{ toolchain }}" '--' west build)
+  $_west init -l app
+  $_west update -o=--depth=1 --narrow --auto-cache ~/.cache/west
+  $_west_build -p -b {{vars.board}}  {{vars.sample}} -d build
+
+  if [[ -d {{ workspace }}/build ]]; then
+    echo "Integration test: build succeeded"
+  else
+    echo "Integration test: build directory not found"
+  fi
+  rm -rf {{ workspace }}
+  mise remove {{backend}}
+  mise plugins remove --all
+  mise reshim
+{% endmacro generate_test_script %}
+
+
+{% if not env.DRY_RUN is defined %}
+  {{ self::generate_test_script() }}
+{% else %}
+  echo "Dry-run! Printing script:"
+  print '{{ self::generate_test_script() }}'
+{% endif %}
 '''
+
+[tasks.zephyr_test]
+extends = "test:script"
+
+[tasks.zephyr_alias_test]
+vars.'_' = { file = "{{config_root}}/tests/configs/alias.env" }
+extends = "test:script"
+
+[tasks.ncs_test]
+vars.'_' = { file = "{{config_root}}/tests/configs/ncs.env" }
+extends = "test:script"
+
+[tasks.test]
+run = [
+  { task = "zephyr_test" },
+  { task = "zephyr_alias_test" },
+  { task = "ncs_test" },
+]

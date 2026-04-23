@@ -56,7 +56,6 @@
 ---@class WestToolOptions
 ---@field additional_requirements? table<string, Version>
 ---@field ncs? boolean
----@field freestanding? boolean
 ---
 ---@alias ToolOptions WestToolOptions|ToolchainOptions
 
@@ -271,24 +270,22 @@ Utils.fs = {}
 ---@field env? table<string, string> Environment variables
 ---@field timeout? integer Timeout in milliseconds
 
----@class SafeCmdExecOpts : CmdExecOpts
+---@class utils.CmdExecOpts : CmdExecOpts
 ---@field fail? boolean If true a failure in the command exec will error out
----@field output_lines? boolean If true returns output split into a string[] of lines
+---@field silent? boolean If true returns no output
 
 ---@class cmd
 ---@field exec fun(command: string, opts?: CmdExecOpts): string Execute a shell command
----@field exec fun(command: string|string[], opts?: SafeCmdExecOpts): string Execute a shell command
 
 ---@class Utils.sh : cmd
----@field execf fun(fmt: string, ...: any): string Execute a formatted shell command
----@field exec fun(exec_cmd: string[]):string?
----@field exec fun(exec_cmd: string[], fail:boolean):string
+---@field exec fun(cmd: string[], opts?: utils.CmdExecOpts):string?
+---@field execf fun(opts?: utils.CmdExecOpts,fmt: string, ...):string?
 ---@field whichdir fun(tool: string): string? Get bin dir for a mise tool
 ---@field which fun(exe: string): string? Check if command exists in PATH
 ---@field realpath fun(filepath: string): string? Resolve real path
 ---@field cwd fun(): string? Get current working directory
----@field mkdir fun(dir: string): boolean Create directory recursively
----@field chmod fun( mode: string,filepath: string): boolean Set file permissions
+---@field mkdir fun(dir: string) Create directory recursively
+---@field chmod fun( mode: string,filepath: string) Set file permissions
 Utils.sh = {}
 
 -- env module ---------------------------------------------------------

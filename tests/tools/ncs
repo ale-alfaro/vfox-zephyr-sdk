@@ -1,8 +1,0 @@
-# Test config: Nordic NCS toolchain bundle.
-manifest=ncs
-board=nrf52840dk/nrf52840
-sample=nrf/samples/mcuboot/firmware_loader_entrance
-toolchain=ncs_toolchain@3.2.1
-west=west[ncs='true']@1.5.0
-toolchain_probe=arm-zephyr-eabi-gcc
-west_probe=west

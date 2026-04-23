@@ -35,7 +35,7 @@ local function resolve_uv()
     if _uv then
         return _uv, _uvx
     end
-    local uv = Utils.sh.exec({ "which", "uv" })
+    local uv = Utils.sh.which("uv")
     if not uv then
         error(
             'uv not found on PATH. Ensure "uv" is declared in PLUGIN.depends '
@@ -51,11 +51,23 @@ end
 
 ---@return string[] versions
 M.list_versions = function()
+    ---We want uvx not uv because we run `pip index` which is not in the `uv pip` interface
     local _, uvx = resolve_uv()
-    local versions_json =
-        Utils.sh.execf([[%s pip index versions west --only-final :all: --python-version 3.12 --json]], uvx)
+    local versions_json = Utils.sh.exec({
+        uvx,
+        "pip",
+        "index",
+        "versions",
+        "west",
+        "--only-final",
+        ":all:",
+        "--python-version",
+        "3.12",
+        "--json",
+    })
     if not versions_json then
-        error("Versions couldn't be fetched from pypi")
+        Utils.wrn("Versions couldn't be fetched from pypi")
+        return { "1.5.0" }
     end
     local json = require("json")
     local ok, decoded = pcall(json.decode, versions_json)
@@ -68,7 +80,7 @@ M.list_versions = function()
     end, decoded.versions)
     Utils.dbg("Versions :", { versions = versions })
 
-    return versions or {}
+    return versions or { "1.5.0" }
 end
 --- Generates and installs the west shim script into the mise install path.
 --- Uses `uv add --script -r requirements.in` to resolve and inline all
@@ -84,7 +96,7 @@ function M.install(ctx)
     local requirements_txt = Utils.fs.join_path(plugin_path, "scripts", "requirements.txt")
     local west_script = Utils.fs.join_path(install_path, "west")
 
-    local uv = resolve_uv()
+    local uv, _ = resolve_uv()
 
     Utils.sh.exec({
         uv,
@@ -93,14 +105,11 @@ function M.install(ctx)
         west_script,
         "--python",
         PYTHON_VERSION,
-    }, true)
+    }, { fail = true })
     -- Let uv resolve deps from requirements.in and write them into the inline metadata
     local requirements_in = {
         Utils.fs.join_path(plugin_path, "scripts", "requirements.in"),
     }
-    if opts.ncs then
-        requirements_in[#requirements_in + 1] = Utils.fs.join_path(plugin_path, "scripts", "requirements-ncs.in")
-    end
     if type(opts.additional_requirements) == "table" or type(opts.additional_requirements) == "string" then
         Utils.inf("Adding additional dependencies: ", { reqs = opts.additional_requirements })
         requirements_in = Utils.list_extend(requirements_in, Utils.ensure_list(opts.additional_requirements))
@@ -120,7 +129,7 @@ function M.install(ctx)
         "--script",
         west_script,
         unpack(requirement_flags),
-    }, true)
+    }, { fail = true })
     edit_west_script(west_script)
     Utils.sh.chmod("+x", west_script)
     Utils.inf("Installed west shim", { script = west_script })
@@ -132,24 +141,21 @@ end
 ---@return EnvKey[] env_vars Array of {key, value} tables
 function M.envs(ctx) -- luacheck: no unused args
     local install_path = ctx.install_path
-    local opts = ctx.options or {} ---@as WestToolOptions?
 
     local env_vars = {
         { key = "PATH", value = install_path },
     }
     local zephyr_base_env = os.getenv("ZEPHYR_BASE")
+    local westtopdir = Utils.sh.exec({ Utils.fs.join_path(install_path, "west"), "topdir" }, { silent = true })
 
-    if not zephyr_base_env and not opts.freestanding then
+    if not zephyr_base_env or westtopdir then
         Utils.wrn([[West workspace not detected and no ZEPHYR_BASE is set.
   West wont be able to access most commands unless you set this variable
   If you are in a workspace you should set ZEPHYR_BASE to the path of the zephyr repo in the workspace.
   If you know what you are doing and want to silence this warning set the following option in the mise.toml:
-  ```toml
-  [tools]
-  "zephyr-sdk:west" = { ... , freestanding = true }
-                    ```
+  [env]
+  ZEPHYR_BASE="{{config_root | dirname}}/zephyr"
                   ]])
-        return env_vars
     end
 
     return env_vars

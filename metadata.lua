@@ -7,5 +7,5 @@ PLUGIN = { -- luacheck: ignore
     version = "0.1.0",
     description = "A mise backend plugin for the Zephyr SDK (arm-zephyr-eabi toolchain)",
     author = "ale-alfaro",
-    depends = { "uv" },
+    depends = { "cmake", "uv" },
 }

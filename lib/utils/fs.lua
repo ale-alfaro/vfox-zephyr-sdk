@@ -181,11 +181,15 @@ function M.path_exists(path, opts)
         exists = M.directory_exists(path)
     end
     if not exists and opts.create then
-        local cmd = { "mkdir", "-p", path }
         if opts.type == "file" then
-            cmd = { "touch", path }
+            local f = io.open(path, "w")
+            if not f then
+                error("Failed to create file " .. path)
+            end
+            f:close()
+        else
+            Utils.sh.mkdir(path)
         end
-        Utils.sh.exec(cmd, true)
         return true
     end
     return exists

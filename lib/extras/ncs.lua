@@ -1,4 +1,3 @@
----@class ZephyrTool
 local M = {}
 
 local TOOLCHAIN_BUNDLES_BASE_URL =
@@ -49,12 +48,10 @@ local function get_toolchain_bundle_index()
 end
 
 function M.list_versions()
-    if RUNTIME.osType:lower() == "darwin" then
-        Utils.wrn("NCS toolchain is not supported on MacOS")
-        return {}
-    end
     local versions = Utils.store.fetch_versions(STORE_KEY, get_toolchain_bundle_index)
-    return versions or {}
+    return Utils.tbl_map(function(v)
+        return v .. "-ncs"
+    end, versions or {})
 end
 --- Installs a specific version of nrfutil (launcher + pinned core module).
 --- Layout: install_path/bin/nrfutil, install_path/home/, install_path/download/
@@ -107,25 +104,5 @@ function M.install(ctx, opts)
     -- 3. Bootstrap: pin core version via tarball path, run nrfutil to trigger install
     Utils.inf("Installed toolchain at", { res = res })
     return {}
-end
-
----@param ctx BackendExecEnvCtx
----@param opts? ToolOptions The mise-provided install path
----@return EnvKey[] env_vars Array of {key, value} tables
-function M.envs(ctx, opts) -- luacheck: no unused args
-    Utils.validate("ctx", ctx, "table")
-    Utils.validate("opts", opts, "table", true)
-    local version, install_path = ctx.version, ctx.install_path
-    Utils.validate("version", version, "string")
-    Utils.validate("install_path", install_path, "string")
-    local zephyr_sdk_install_dir = Utils.fs.join_path(install_path, "opt", "zephyr-sdk")
-    local bin_path = Utils.fs.join_path(zephyr_sdk_install_dir, "arm-zephyr-eabi", "bin")
-
-    local env_vars = {
-        { key = "PATH", value = bin_path },
-        { key = "ZEPHYR_TOOLCHAIN_VARIANT", value = "zephyr" },
-        { key = "ZEPHYR_SDK_INSTALL_DIR", value = zephyr_sdk_install_dir },
-    }
-    return env_vars
 end
 return M

@@ -117,8 +117,8 @@ local function run_setup(sdk_root, opts)
         cmd = { setup_sh, " -?" }
     end
     Utils.dbg("Running Zephyr SDK setup", { cmd = cmd })
-    Utils.sh.exec({ "chmod", "+x", setup_sh })
-    local out = Utils.sh.exec(cmd)
+    Utils.sh.chmod("+x", setup_sh)
+    local out = Utils.sh.exec(cmd, { fail = true })
     return (out ~= nil) and 0 or -1
 end
 
@@ -150,10 +150,17 @@ function M.install(ctx, opts)
         download_path,
         { name = "zephr-sdk-" .. version, strip_components = 1 }
     )
-    if run_setup(install_path, toolchain_opts) ~= 0 then
-        Utils.err("Running setup cmd failed with error ")
-    else
-        Utils.inf("Installed toolchain at", { res = install_path })
+    if toolchain_opts.toolchains then
+        if not Utils.sh.which("cmake") then
+            Utils.err("Cmake is necessary to be able to install the toolchains, please install using mise")
+            assert(false)
+        end
+
+        if run_setup(install_path, toolchain_opts) ~= 0 then
+            Utils.err("Running setup cmd failed with error ")
+        else
+            Utils.inf("Installed toolchain at", { res = install_path })
+        end
     end
 end
 
@@ -177,6 +184,10 @@ function M.envs(ctx, opts) -- luacheck: no unused args
         { key = "ZEPHYR_SDK_INSTALL_DIR", value = zephyr_sdk_install_dir },
     }
     if toolchain_opts.toolchains then
+        if not Utils.sh.which("cmake") then
+            Utils.err("Cmake is necessary to be use the toolchains, please install using mise")
+            assert(false)
+        end
         for _, tc in ipairs(toolchain_opts.toolchains) do
             env_vars[#env_vars + 1] = { key = "PATH", value = Utils.fs.join_path(toolchain_root, tc, "bin") }
         end

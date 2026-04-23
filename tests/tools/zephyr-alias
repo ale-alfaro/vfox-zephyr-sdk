@@ -1,9 +1,0 @@
-# Test config: `arm` alias — exercises ZephyrSdk._targets routing in
-# lib/zephyr_sdk.lua. Same build target as the plain `zephyr` variant.
-manifest=zephyr
-board=native_sim
-sample=zephyr/samples/hello_world
-toolchain=arm@0.17.4
-west=west@1.5.0
-toolchain_probe=arm-zephyr-eabi-gcc
-west_probe=west

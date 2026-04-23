@@ -126,7 +126,10 @@ function M.decompress_strip_components(archive_path, install_dir, components)
         "Extracting SDK and stripping components",
         { archive = archive_path, dest = install_dir, components = components }
     )
-    Utils.sh.execf("tar xvf %q --directory %q --strip-components=%d", archive_path, install_dir, components)
+    Utils.sh.exec(
+        { "tar", "xvf", archive_path, "--directory", install_dir, "--strip-components=" .. components },
+        { fail = true }
+    )
 
     os.remove(archive_path)
 end

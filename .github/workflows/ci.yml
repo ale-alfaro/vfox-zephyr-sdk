@@ -21,6 +21,10 @@ jobs:
           gcc-multilib g++-multilib device-tree-compiler
       - name: Lua typecheck and linting
         run: mise run lint
+      - name: Dry-run tests
+        run: mise run test
+        env:
+          DRY_RUN: 1
       - name: Cache
         uses: actions/cache@v4
         with:
