@@ -95,4 +95,19 @@ function M.chmod(mode, filepath)
     M.exec({ "chmod", mode, filepath }, { fail = true })
 end
 
+--- Set file permissions (POSIX only).
+---@param src string Permission mode (e.g. "+x", "755")
+---@param dst string File path
+---@param opts {recursive:boolean,force:boolean}File path
+function M.cp(src, dst, opts)
+    local cp_cmd = { "cp" }
+    opts = opts or {}
+    if opts.recursive then
+        cp_cmd[#cmd + 1] = "-r"
+    end
+    if opts.force then
+        cp_cmd[#cmd + 1] = "-f"
+    end
+    M.exec(Utils.list_extend(cp_cmd, { src, dst }), { fail = true })
+end
 return M

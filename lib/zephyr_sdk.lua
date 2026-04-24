@@ -47,48 +47,26 @@ end
 --- Build an ncs-flavoured wrapper around the generic `toolchain` / `west` module.
 --- Keeps ncs packaged as a pseudo-tool (accessed via `ncs_<tool>`) without a
 --- dedicated registry entry.
----@param name string Base tool name ("toolchain" or "west")
----@param tool ZephyrTool Original module to decorate
 ---@return ZephyrTool
-local function build_ncs_variant(name, tool)
-    if name == "west" then
-        return {
-            list_versions = tool.list_versions,
-            install = function(ctx, opts)
-                opts = Utils.tbl_extend("force", opts or {}, {
-                    additional_requirements = {
-                        Utils.fs.join_path(RUNTIME.pluginDirPath, "scripts", "requirements-ncs.in"),
-                    },
-                })
-                return tool.install(ctx, opts)
-            end,
-            envs = tool.envs,
-        }
-    elseif name == "toolchain" then
-        local ncs = require("extras.ncs")
-        return {
-            list_versions = ncs.list_versions,
-            install = ncs.install,
-            envs = function(ctx, opts)
-                local sdk_ctx = Utils.tbl_extend("force", ctx, {
-                    install_path = Utils.fs.join_path(ctx.install_path, "opt", "zephyr-sdk"),
-                })
-                return tool.envs(sdk_ctx, opts)
-            end,
-        }
-    end
-    error("No ncs variant defined for tool " .. name)
+local function build_ncs_toolchain_variant()
+    local tool = require("toolchain")
+    local ncs = require("extras.ncs")
+    return {
+        list_versions = ncs.list_versions,
+        install = ncs.install,
+        envs = function(ctx, opts)
+            local sdk_ctx = Utils.tbl_extend("force", ctx, {
+                install_path = Utils.fs.join_path(ctx.install_path, "opt", "zephyr-sdk"),
+            })
+            return tool.envs(sdk_ctx, opts)
+        end,
+    }
 end
 
 -- Lazy-load tool modules on first access; resolve toolchain aliases on demand.
 setmetatable(ZephyrSdk, {
     --- @param t table<string,ZephyrTool>
     __index = function(t, key)
-        local base = key:match("^ncs_(.+)$")
-        if base and ZephyrSdk._tools[base] then
-            t[key] = build_ncs_variant(base, require(base))
-            return t[key]
-        end
         if ZephyrSdk._tools[key] then
             t[key] = require(key)
             return t[key]
@@ -96,6 +74,11 @@ setmetatable(ZephyrSdk, {
         local target = ZephyrSdk._targets[key]
         if target then
             t[key] = build_alias(target)
+            return t[key]
+        end
+        local base = key:match("^ncs_(.+)$")
+        if base == "toolchain" then
+            t[key] = build_ncs_toolchain_variant()
             return t[key]
         end
         error("Tool not registered " .. key)
