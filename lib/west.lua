@@ -93,8 +93,15 @@ function M.install(ctx)
     if not plugin_path then
         error("Could not get plugin path")
     end
+
+    local installation_west = Utils.fs.join_path(install_path, "west")
+    if not opts.additional_requirements then
+        local packaged_west = Utils.fs.join_path(RUNTIME.pluginDirPath, "bin", "west")
+        Utils.inf("Copying west shim to install path", { path = installation_west })
+        Utils.sh.cp(packaged_west, installation_west)
+        return {}
+    end
     local requirements_txt = Utils.fs.join_path(plugin_path, "scripts", "requirements.txt")
-    local west_script = Utils.fs.join_path(install_path, "west")
 
     local uv, _ = resolve_uv()
 
@@ -102,43 +109,33 @@ function M.install(ctx)
         uv,
         "init",
         "--script",
-        west_script,
+        installation_west,
         "--python",
         PYTHON_VERSION,
     }, { fail = true })
+    local requirement_flags = { "-r", requirements_txt }
     -- Let uv resolve deps from requirements.in and write them into the inline metadata
-    local requirements_in = {
-        Utils.fs.join_path(plugin_path, "scripts", "requirements.in"),
-    }
     if type(opts.additional_requirements) == "table" or type(opts.additional_requirements) == "string" then
         Utils.inf("Adding additional dependencies: ", { reqs = opts.additional_requirements })
-        requirements_in = Utils.list_extend(requirements_in, Utils.ensure_list(opts.additional_requirements))
-    end
-    local requirement_flags = { "-c", requirements_txt }
-    for _, req in ipairs(requirements_in) do
-        if Utils.fs.exists(req) then
-            requirement_flags[#requirement_flags + 1] = "-r"
-            requirement_flags[#requirement_flags + 1] = req
-        else
-            Utils.wrn("Could'nt find requirement ", { req = req })
+        for _, req in ipairs(Utils.ensure_list(opts.additional_requirements)) do
+            if Utils.fs.exists(req) then
+                requirement_flags[#requirement_flags + 1] = "-r"
+                requirement_flags[#requirement_flags + 1] = req
+            else
+                Utils.wrn("Could'nt find requirement ", { req = req })
+            end
         end
     end
     Utils.sh.exec({
         uv,
         "add",
         "--script",
-        west_script,
+        installation_west,
         unpack(requirement_flags),
     }, { fail = true })
-    Utils.sh.exec({
-        uv,
-        "lock",
-        "--script",
-        west_script,
-    }, { fail = true })
-    edit_west_script(west_script)
-    Utils.sh.chmod("+x", west_script)
-    Utils.inf("Installed west shim", { script = west_script })
+    edit_west_script(installation_west)
+    Utils.sh.chmod("+x", installation_west)
+    Utils.inf("Installed west shim", { script = installation_west })
 end
 
 --- Returns environment variables for the west shim.
