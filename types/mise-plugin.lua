@@ -55,7 +55,6 @@
 ---
 ---@class WestToolOptions
 ---@field additional_requirements? table<string, Version>
----@field ncs? boolean
 ---
 ---@alias ToolOptions WestToolOptions|ToolchainOptions
 
@@ -286,6 +285,7 @@ Utils.fs = {}
 ---@field cwd fun(): string? Get current working directory
 ---@field mkdir fun(dir: string) Create directory recursively
 ---@field chmod fun( mode: string,filepath: string) Set file permissions
+---@field cp fun( src: string,dst: string, opts?:{recursive:boolean,force:boolean}) Set file permissions
 Utils.sh = {}
 
 -- env module ---------------------------------------------------------
