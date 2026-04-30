@@ -7,8 +7,11 @@ on:
     branches: [main, develop]
   workflow_dispatch:
 jobs:
-  ci:
-    runs-on: ubuntu-latest
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     env:
       MISE_ENV: ci
     steps:
@@ -16,7 +19,15 @@ jobs:
       - uses: jdx/mise-action@v4
         with:
           experimental: true
-      - name: Install system dependencies
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/west
+            ~/.local/share/mise
+          key: ${{ runner.os }}-west-${{ hashFiles('mise.ci.toml') }}
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh
           gcc-multilib g++-multilib device-tree-compiler
       - name: Lua typecheck and linting
@@ -25,12 +36,5 @@ jobs:
         run: mise run test
         env:
           DRY_RUN: 1
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/west
-            ~/.local/share/mise
-          key: ${{ runner.os }}-west-${{ hashFiles('mise.ci.toml') }}
       - name: Run tests
         run: mise run test --timeout 10m

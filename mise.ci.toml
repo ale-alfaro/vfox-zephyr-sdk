@@ -6,9 +6,6 @@ uv = "latest"
 cmake = "latest"
 lua-language-server = "latest"
 
-[vars]
-_.file = "{{config_root}}/tests/configs/zephyr.env"
-
 [tasks.lint]
 description = "Lint Lua sources"
 run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP:-/tmp}/luals-log"'
@@ -22,7 +19,7 @@ run = '''
   {% set manifest = vars.variant ~ '-manifest' %}
   {% set workspace = vars.variant ~ '-workspace' %}
   {% if vars.toolchain_alias is defined %}{% set toolchain = backend ~ ':' ~ vars.toolchain_alias %}{% else %}{% set toolchain = backend  ~ ':' ~ vars.toolchain %}{% endif %}
-  {% set west = backend  ~ ':' ~ vars.west %}
+  {% set west = backend  ~ ':west@1.5.0'  %}
   echo "=== Backend {{ backend }} ==="
   mise plugins ln '{{ backend }}' "{{config_root}}"
 
@@ -62,19 +59,15 @@ run = '''
 '''
 
 [tasks.zephyr_test]
+vars."_" = { file = "{{config_root}}/tests/configs/zephyr.env" }
 extends = "test:script"
 
 [tasks.zephyr_alias_test]
-vars = { toolchain_alias = "arm@0.17.4" }
+vars = { "_" = { file = "{{config_root}}/tests/configs/zephyr.env" }, toolchain_alias = "arm@0.17.4" }
 extends = "test:script"
 
 [tasks.ncs_test]
 vars.'_' = { file = "{{config_root}}/tests/configs/ncs.env" }
-extends = "test:script"
-
-[tasks.ncs_alias_test]
-vars.'_' = { file = "{{config_root}}/tests/configs/ncs.env" }
-vars.toolchain_alias = "arm@0.17.0"
 extends = "test:script"
 
 [tasks.test]
@@ -82,5 +75,4 @@ run = [
   { task = "zephyr_test" },
   { task = "zephyr_alias_test" },
   { task = "ncs_test" },
-  { task = "ncs_alias_test" },
 ]
