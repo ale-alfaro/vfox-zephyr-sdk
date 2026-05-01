@@ -1,4 +1,7 @@
-local M = {}
+local M = {
+    ---@type table<Version,table>
+    cache = {},
+}
 
 ---@param store_name string
 ---@return boolean
@@ -73,50 +76,44 @@ function M.read_table(store_name)
 end
 ---@param store_name string
 ---@param fetch_fn AssetBundleFetchFn
----@return string[]?
-function M.fetch_versions(store_name, fetch_fn)
+---@return table<Version,ToolchainBundle[]>?
+function read_store(store_name, fetch_fn)
     Utils.validate("store_name", store_name, "string")
     Utils.validate("fetch_releases_fn", fetch_fn, "function")
-    if Utils.store.store_exists(store_name) then
-        Utils.dbg("Store exists already, returning values stored there")
-        local assets = Utils.store.read_table(store_name)
-        if not assets then
-            Utils.fatal("Could not get asset store")
-            return {}
+    local assets = Utils.store.read_table(store_name)
+    if assets then
+        Utils.inf("Store exists already, returning values stored there")
+    else
+        Utils.inf("Fetching new bundle store")
+        local bundles = fetch_fn()
+        if not bundles then
+            Utils.wrn("Could not fetch bundles online")
+            return nil
         end
-        return Utils.tbl_keys(assets)
+        assets = {}
+        for _, bundle in Utils.semver.spairs(bundles) do
+            assets[bundle.version] = bundle
+        end
     end
-    local bundles = fetch_fn()
-    if not bundles then
-        return {}
-    end
-    local versions = {} ---@as string[]
-    local cache = {} ---@as table<Version,table>
-    for _, bundle in Utils.semver.spairs(bundles) do
-        cache[bundle.version] = bundle
-        versions[#versions + 1] = bundle.version
-    end
-
-    Utils.store.store_table(cache, store_name)
+    Utils.store.store_table(assets, store_name)
+    return assets
+end
+---@param store_name string
+---@param fetch_fn AssetBundleFetchFn
+---@return Version[]
+function M.fetch_versions(store_name, fetch_fn)
+    local assets = read_store(store_name, fetch_fn)
+    local versions = Utils.tbl_keys(assets or {})
     Utils.dbg("Versions", { versions = versions })
     return versions
 end
+
 ---@param store_name string
+---@param fetch_fn AssetBundleFetchFn
 ---@param version string
 ---@return ToolchainBundle?
-function M.fetch_asset_bundles(store_name, version)
-    local bundles = M.read_table(store_name)
-
-    if not bundles then
-        Utils.err("Could not get bundle cache", { version = version })
-        return nil
-    end
-
-    local bundle = bundles[version]
-    if not bundle then
-        Utils.err("Could not find bundle in cache ", { version = version })
-        return nil
-    end
-    return bundle
+function M.fetch_asset_bundles(store_name, fetch_fn, version)
+    local assets = read_store(store_name, fetch_fn) or {}
+    return assets[version]
 end
 return M

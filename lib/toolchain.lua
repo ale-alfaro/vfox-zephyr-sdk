@@ -52,15 +52,14 @@ end
 --- Map runtime OS name to Zephyr SDK naming convention
 ---@return string[] versions
 M.list_versions = function()
-    local versions = Utils.store.fetch_versions(STORE_KEY, github_fetch_releases)
-    return versions or {}
+    return Utils.store.fetch_versions(STORE_KEY, github_fetch_releases)
 end
 
 ---
 ---@param opts? ToolOptions Custom options from mise.toml
 ---@return ToolchainOptions
 local function parse_toolchain_options(opts)
-    Utils.inf("Parsing opts:", { opts = opts })
+    Utils.dbg("Parsing opts:", { opts = opts })
     local tc_opts = Utils.tbl_extend("force", {
         toolchains = {},
         hosttools = false,
@@ -135,10 +134,10 @@ function M.install(ctx, opts)
     Utils.validate("install_path", install_path, "string")
     Utils.validate("download_path", download_path, "string")
     local toolchain_opts = parse_toolchain_options(opts)
-    local asset = Utils.store.fetch_asset_bundles(STORE_KEY, version)
+    local asset = Utils.store.fetch_asset_bundles(STORE_KEY, github_fetch_releases, version)
 
     if not asset then
-        Utils.fatal("Bundle not found for version and store key provided", { version = version, key = STORE_KEY })
+        Utils.fatal("Toolchain assets could not be found locally or online", { version = version, key = STORE_KEY })
         error()
     end
 

@@ -48,10 +48,7 @@ local function get_toolchain_bundle_index()
 end
 
 function M.list_versions()
-    local versions = Utils.store.fetch_versions(STORE_KEY, get_toolchain_bundle_index)
-    return Utils.tbl_map(function(v)
-        return v .. "-ncs"
-    end, versions or {})
+    return Utils.store.fetch_versions(STORE_KEY, get_toolchain_bundle_index)
 end
 --- Installs a specific version of nrfutil (launcher + pinned core module).
 --- Layout: install_path/bin/nrfutil, install_path/home/, install_path/download/
@@ -77,7 +74,7 @@ function M.install(ctx, opts)
         return {}
     end
 
-    local bundle = Utils.store.fetch_asset_bundles(STORE_KEY, version)
+    local bundle = Utils.store.fetch_asset_bundles(STORE_KEY, get_toolchain_bundle_index, version)
     if not bundle then
         Utils.fatal("Bundle not found for version and store key provided", { version = version, key = STORE_KEY })
         error()
