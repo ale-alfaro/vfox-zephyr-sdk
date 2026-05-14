@@ -114,6 +114,12 @@ end
 ---@return ToolchainBundle?
 function M.fetch_asset_bundles(store_name, fetch_fn, version)
     local assets = read_store(store_name, fetch_fn) or {}
-    return assets[version]
+    local bundle = assets[version]
+    if not bundle then
+        Utils.err(
+            "Found store but insid stroe couldn find bundle with specified version",
+            { version = version, store = assets }
+        )
+    end
 end
 return M

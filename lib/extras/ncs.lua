@@ -132,7 +132,7 @@ function M.install(ctx, opts)
         "install",
         "--toolchain-bundle",
         local_bundle,
-        "--ncs-install-dir",
+        "---install-dir",
         install_path,
     }, { fail = true })
 

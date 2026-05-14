@@ -31,6 +31,7 @@ run = '''
   {% if vars.variant == 'ncs' %}
   mise install "{{ backend }}:nrfutil@latest"
   mise x "{{ backend }}:nrfutil@latest" -- nrfutil --version
+  mise use -g "{{ backend }}:nrfutil@latest"
   {% endif %}
   mise ls-remote "{{toolchain}}"
   mise ls-remote "{{west}}"
