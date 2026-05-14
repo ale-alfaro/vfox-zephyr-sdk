@@ -99,6 +99,7 @@ function M.install(ctx)
         local packaged_west = Utils.fs.join_path(RUNTIME.pluginDirPath, "bin", "west")
         Utils.inf("Copying west shim to install path", { path = installation_west })
         Utils.sh.cp(packaged_west, installation_west)
+        Utils.sh.chmod("+x", installation_west)
         return {}
     end
     local requirements_txt = Utils.fs.join_path(plugin_path, "scripts", "requirements.txt")
