@@ -28,6 +28,10 @@ run = '''
   {% set toolchain = toolchain ~  '@' ~ version %} 
   echo "=== Backend {{ backend }} ==="
 
+  {% if vars.variant == 'ncs' %}
+  mise install "{{ backend }}:nrfutil@latest"
+  mise x "{{ backend }}:nrfutil@latest" -- nrfutil --version
+  {% endif %}
   mise ls-remote "{{toolchain}}"
   mise ls-remote "{{west}}"
   mise x "{{toolchain}}" -- arm-zephyr-eabi-gcc --version
@@ -72,7 +76,7 @@ vars = { "_" = { file = "{{config_root}}/tests/configs/zephyr.env" }, versions =
 extends = "test:script"
 
 [tasks.ncs_test]
-vars = { "_" = { file = "{{config_root}}/tests/configs/ncs.env" }, versions = "0.17.0" }
+vars = { "_" = { file = "{{config_root}}/tests/configs/ncs.env" }, versions = "3.2.1" }
 extends = "test:script"
 
 [tasks.test]

@@ -23,9 +23,7 @@ function M.exec(exec_cmd, opts)
     opts = opts or {}
     local sh_cmd = Utils.strings.join(Utils.ensure_list(exec_cmd), " ") or ""
     Utils.dbg("sh.exec: " .. sh_cmd)
-    -- Forward only the keys cmd.exec understands; our extras (fail/silent) stay here.
-    local cmd_opts = { cwd = opts.cwd, env = opts.env, timeout = opts.timeout }
-    local ok, result = pcall(cmd.exec, sh_cmd, cmd_opts)
+    local ok, result = pcall(cmd.exec, sh_cmd)
     if not ok then
         if not opts.silent then
             Utils.err("Command failed", { cmd = sh_cmd })

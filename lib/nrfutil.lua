@@ -1,7 +1,7 @@
 --- nrfutil launcher + sdk-manager bootstrap.
---- Installs the platform-specific nrfutil launcher under install_path/bin and
---- bootstraps the sdk-manager core module with NRFUTIL_HOME pinned to
---- install_path so nothing leaks into ~/.nrfutil.
+--- Installs the platform-specific nrfutil launcher at install_path/nrfutil
+--- (or nrfutil.exe on Windows) and bootstraps the sdk-manager core module
+--- with NRFUTIL_HOME pinned to install_path so nothing leaks into ~/.nrfutil.
 
 ---@class ZephyrTool
 local M = {}
@@ -41,11 +41,8 @@ function M.install(ctx)
     Utils.validate("ctx", ctx, "table")
     Utils.validate("install_path", ctx.install_path, "string")
 
-    local bin_dir = Utils.fs.join_path(ctx.install_path, "bin")
-    Utils.sh.mkdir(bin_dir)
-
     local url, exe = launcher_url()
-    local launcher = Utils.fs.join_path(bin_dir, exe)
+    local launcher = Utils.fs.join_path(ctx.install_path, exe)
 
     Utils.inf("Downloading nrfutil launcher", { url = url, dest = launcher })
     local ok, err = Utils.net.download_with_progress(url, launcher)
@@ -58,10 +55,10 @@ function M.install(ctx)
     end
 
     Utils.inf("Bootstrapping sdk-manager core module", { home = ctx.install_path })
-    Utils.sh.exec({ launcher, "install", "sdk-manager" }, {
-        env = { NRFUTIL_HOME = ctx.install_path },
-        fail = true,
-    })
+    -- setenv (not opts.env) so the existing PATH / HOME / TMPDIR are preserved
+    -- when nrfutil shells out to fetch the core-module tarball.
+    require("env").setenv("NRFUTIL_HOME", ctx.install_path)
+    Utils.sh.exec({ launcher, "install", "sdk-manager" }, { fail = true })
 end
 
 ---@param ctx BackendExecEnvCtx
@@ -70,7 +67,7 @@ function M.envs(ctx) -- luacheck: no unused args
     Utils.validate("ctx", ctx, "table")
     Utils.validate("install_path", ctx.install_path, "string")
     return {
-        { key = "PATH", value = Utils.fs.join_path(ctx.install_path, "bin") },
+        { key = "PATH", value = ctx.install_path },
         { key = "NRFUTIL_HOME", value = ctx.install_path },
     }
 end

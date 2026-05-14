@@ -227,6 +227,7 @@ Utils.http = {}
 ---@field gh_api fun(repo: string, components:string, opts?:GhApiOpts): HttpRequestOpts
 ---@field archived_asset_download fun(url: string, install_dir: string, download_dir: string, asset_opts?: table): string? Download and extract archive
 ---@field executable_asset_download fun(url: string, install_dir: string, exe_name?: string): string? Download executable
+---@field download_with_progress fun(url: string, dest: string, headers?: table<string, string>): boolean, string? Download a file (curl with progress bar, falls back to mise http)
 ---@field get_json_payload fun(request: string|HttpRequestOpts, filter_fn?: function, key_to_filter?: string): table? Fetch and parse JSON
 ---@field decompress_strip_components fun(install_dir:string ,archive_path:string,components:number):string?
 Utils.net = {}

@@ -111,13 +111,18 @@ function M.install(ctx, opts)
         error()
     end
 
-    -- Pin NRFUTIL_HOME to this install_path so nrfutil drops its sdk-manager
-    -- state and the unpacked toolchain under mise's tree instead of ~/.nrfutil.
+    -- Pin both env vars under mise's tree:
+    --   NRFUTIL_HOME      -> nrfutil's own packages/config/state
+    --   --ncs-install-dir -> where sdk-manager unpacks the toolchain bundle
+    -- (the latter defaults to ~/ncs on Linux, /opt/nordic/ncs on macOS,
+    -- C:/ncs on Windows, regardless of NRFUTIL_HOME -- this is the bit that
+    -- otherwise leaks outside mise's install tree).
+    -- setenv (instead of cmd.exec opts.env) preserves PATH/HOME/TMPDIR.
     Utils.sh.mkdir(install_path)
-    local env = { NRFUTIL_HOME = install_path }
+    require("env").setenv("NRFUTIL_HOME", install_path)
 
     Utils.inf("Bootstrapping sdk-manager into NCS install root", { home = install_path })
-    Utils.sh.exec({ nrfutil, "install", "sdk-manager" }, { env = env, fail = true })
+    Utils.sh.exec({ nrfutil, "install", "sdk-manager" }, { fail = true })
 
     Utils.inf("Installing toolchain bundle via nrfutil sdk-manager")
     Utils.sh.exec({
@@ -127,7 +132,9 @@ function M.install(ctx, opts)
         "install",
         "--toolchain-bundle",
         local_bundle,
-    }, { env = env, fail = true })
+        "--ncs-install-dir",
+        install_path,
+    }, { fail = true })
 
     -- Surface the SDK root at the conventional `<install_path>/opt/zephyr-sdk`
     -- path so `build_ncs_toolchain_variant.envs` (which forwards to toolchain.envs)
