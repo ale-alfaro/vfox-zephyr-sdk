@@ -22,6 +22,7 @@ local function launcher_url()
     local triple = LAUNCHER_TRIPLE[os_name] and LAUNCHER_TRIPLE[os_name][arch]
     if not triple then
         Utils.fatal("nrfutil launcher not published for this platform", { os = os_name, arch = arch })
+        error()
     end
     local exe = (os_name == "windows") and "nrfutil.exe" or "nrfutil"
     return Utils.fs.join_path(LAUNCHER_BASE, triple, exe), exe
@@ -50,6 +51,7 @@ function M.install(ctx)
     local ok, err = Utils.net.download_with_progress(url, launcher)
     if not ok then
         Utils.fatal("Failed to download nrfutil launcher", { err = err })
+        error()
     end
     if Utils.os() ~= "windows" then
         Utils.sh.chmod("+x", launcher)

@@ -83,6 +83,7 @@ function M.install(ctx, opts)
         and (Utils.semver.compare(version, MIN_VERSION) < 0 or Utils.semver.compare(version, MAX_VERSION) > 0)
     then
         Utils.fatal("NCS passed as an option with an unsupported version", { version = version })
+        error()
     end
 
     local nrfutil = Utils.sh.which("nrfutil")
@@ -91,20 +92,23 @@ function M.install(ctx, opts)
             "nrfutil is required to install NCS toolchain bundles. "
                 .. "Install it first with: `mise install zephyr-sdk:nrfutil@latest`"
         )
+        error()
     end
 
     local bundle = Utils.store.fetch_asset_bundles(STORE_KEY, get_toolchain_bundle_index, version)
     if not bundle then
         Utils.fatal("Bundle not found for version and store key", { version = version, key = STORE_KEY })
+        error()
     end
 
     Utils.sh.mkdir(download_path)
-    local bundle_name = bundle.download_url:match("([^/]+)$")
+    local bundle_name = assert(bundle.download_url:match("([^/]+)$"), "bundle download_url has no filename")
     local local_bundle = Utils.fs.join_path(download_path, bundle_name)
     Utils.inf("Downloading NCS toolchain bundle", { bundle = bundle, dest = local_bundle })
     local ok, err = Utils.net.download_with_progress(bundle.download_url, local_bundle)
     if not ok then
         Utils.fatal("Failed to download toolchain bundle", { err = err })
+        error()
     end
 
     -- Pin NRFUTIL_HOME to this install_path so nrfutil drops its sdk-manager
@@ -131,6 +135,7 @@ function M.install(ctx, opts)
     local sdk_root = find_sdk_root(install_path)
     if not sdk_root then
         Utils.fatal("Could not locate installed Zephyr SDK under toolchains/", { install_path = install_path })
+        error()
     end
     local link_parent = Utils.fs.join_path(install_path, "opt")
     Utils.sh.mkdir(link_parent)
