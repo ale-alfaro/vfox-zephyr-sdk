@@ -7,6 +7,7 @@ _G.ZephyrSdk = _G.ZephyrSdk or {}
 ZephyrSdk._tools = {
     toolchain = true,
     west = true,
+    nrfutil = true,
 }
 ZephyrSdk._targets = {
     ["aarch64"] = "aarch64-zephyr-elf",
@@ -58,7 +59,11 @@ local function build_ncs_toolchain_variant()
             local sdk_ctx = Utils.tbl_extend("force", ctx, {
                 install_path = Utils.fs.join_path(ctx.install_path, "opt", "zephyr-sdk"),
             })
-            return tool.envs(sdk_ctx, opts)
+            local env_vars = tool.envs(sdk_ctx, opts)
+            -- Point user-invoked `nrfutil sdk-manager` calls at this install
+            -- so `toolchain list` etc. see the bundle we just installed.
+            env_vars[#env_vars + 1] = { key = "NRFUTIL_HOME", value = ctx.install_path }
+            return env_vars
         end,
     }
 end
