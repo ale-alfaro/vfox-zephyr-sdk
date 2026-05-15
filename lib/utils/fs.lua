@@ -176,7 +176,7 @@ function M.path_exists(path, opts)
     opts = opts or { type = "directory" }
     local exists
     if opts.type == "file" then
-        exists = M.exists(path)
+        exists = require("file").exists(path)
     else
         exists = M.directory_exists(path)
     end
