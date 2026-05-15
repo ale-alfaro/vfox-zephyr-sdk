@@ -134,7 +134,7 @@ function M.install(ctx, opts)
     Utils.validate("install_path", install_path, "string")
     Utils.validate("download_path", download_path, "string")
     local toolchain_opts = parse_toolchain_options(opts)
-    local asset = Utils.store.fetch_asset_bundles(STORE_KEY, github_fetch_releases, version)
+    local asset = Utils.store.fetch_toolchain_asset(STORE_KEY, github_fetch_releases, version)
 
     if not asset then
         Utils.fatal("Toolchain assets could not be found locally or online", { version = version, key = STORE_KEY })
