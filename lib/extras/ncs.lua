@@ -74,7 +74,7 @@ function M.install(ctx, opts)
         return {}
     end
 
-    local bundle = Utils.store.fetch_asset_bundles(STORE_KEY, get_toolchain_bundle_index, version)
+    local bundle = Utils.store.fetch_toolchain_asset(STORE_KEY, get_toolchain_bundle_index, version)
     if not bundle then
         Utils.fatal("Bundle not found for version and store key provided", { version = version, key = STORE_KEY })
         error()

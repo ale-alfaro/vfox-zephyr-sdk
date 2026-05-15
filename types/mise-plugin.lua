@@ -307,7 +307,7 @@ local archiver = {}
 ---@field store_table fun(data: table, store_name: string): string? Write table to JSON store
 ---@field read_table fun(store_name: string): table? Read table from JSON store
 ---@field fetch_versions fun(store_name:string,fetch_fn:AssetBundleFetchFn):string[]
----@field fetch_asset_bundles fun(store_name:string, fetch_fn:AssetBundleFetchFn, version:string):ToolchainBundle?
+---@field fetch_toolchain_asset fun(store_name:string, fetch_fn:AssetBundleFetchFn, version:string):ToolchainBundle?
 Utils.store = {}
 
 -- semver module ------------------------------------------------------
