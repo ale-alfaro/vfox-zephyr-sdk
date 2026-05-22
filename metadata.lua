@@ -2,10 +2,11 @@
 -- Plugin metadata and configuration
 -- Documentation: https://mise.jdx.dev/backend-plugin-development.html
 
-PLUGIN = { -- luacheck: ignore
+PLUGIN = {
     name = "zephyr",
     version = "0.3.0",
     description = "A mise backend plugin for the Zephyr SDK (arm-zephyr-eabi toolchain)",
     author = "ale-alfaro",
     depends = { "cmake", "uv" },
+    homepage = "https://ale-alfaro.github.io",
 }

@@ -23,64 +23,39 @@ local function edit_west_script(file)
 end
 ---@class ZephyrTool
 local M = {}
-local MIN_VERSION = "1.4.0"
-
---- Resolve uv binary path from the dependency environment.
---- mise injects dependency bin dirs into cmd_env (via PLUGIN.depends = {"uv"}),
---- so uv is on PATH when hooks execute. We resolve the full path once and cache it.
----@return string uv_path Absolute path to the uv binary
----@return string uvx_path Absolute path to the uvx binary
-local _uv, _uvx
-local function resolve_uv()
-    if _uv then
-        return _uv, _uvx
-    end
-    local uv = Utils.sh.which("uv")
-    if not uv then
-        error(
-            'uv not found on PATH. Ensure "uv" is declared in PLUGIN.depends '
-                .. "and installed via mise (e.g. mise install uv)"
-        )
-    end
-    _uv = uv
-    -- uvx lives next to uv
-    _uvx = Utils.fs.join_path(Utils.fs.dirname(uv), "uvx")
-    Utils.dbg("Resolved uv dependency", { uv = _uv, uvx = _uvx })
-    return _uv, _uvx
-end
 
 ---@return string[] versions
 M.list_versions = function()
     ---We want uvx not uv because we run `pip index` which is not in the `uv pip` interface
-    local _, uvx = resolve_uv()
-    local versions_json = Utils.sh.exec({
-        uvx,
-        "pip",
-        "index",
-        "versions",
-        "west",
-        "--only-final",
-        ":all:",
-        "--python-version",
-        "3.12",
-        "--json",
-    })
-    if not versions_json then
-        Utils.wrn("Versions couldn't be fetched from pypi")
-        return { "1.5.0" }
-    end
-    local json = require("json")
-    local ok, decoded = pcall(json.decode, versions_json)
+    -- local _, uvx = resolve_uv()
+    -- local versions_json = Utils.sh.exec({
+    --     uvx,
+    --     "pip",
+    --     "index",
+    --     "versions",
+    --     "west",
+    --     "--only-final",
+    --     ":all:",
+    --     "--python-version",
+    --     "3.12",
+    --     "--json",
+    -- })
+    -- if not versions_json then
+    --     Utils.wrn("Versions couldn't be fetched from pypi")
+    --     return { "1.5.0" }
+    -- end
+    -- local json = require("json")
+    -- local ok, decoded = pcall(json.decode, versions_json)
+    --
+    -- if not ok or not decoded.versions then
+    --     error("Versions couldn't be decoded:" .. decoded)
+    -- end
+    -- local versions = Utils.list_filter(function(v)
+    --     return Utils.semver.compare(MIN_VERSION, v) <= 0
+    -- end, decoded.versions)
+    -- Utils.dbg("Versions :", { versions = versions })
 
-    if not ok or not decoded.versions then
-        error("Versions couldn't be decoded:" .. decoded)
-    end
-    local versions = Utils.list_filter(function(v)
-        return Utils.semver.compare(MIN_VERSION, v) <= 0
-    end, decoded.versions)
-    Utils.dbg("Versions :", { versions = versions })
-
-    return versions or { "1.5.0" }
+    return { "1.5.0" }
 end
 --- Generates and installs the west shim script into the mise install path.
 --- Uses `uv add --script -r requirements.in` to resolve and inline all
@@ -89,54 +64,66 @@ end
 function M.install(ctx)
     local install_path = ctx.install_path
     local opts = ctx.options or {} ---@as WestToolOptions
-    local plugin_path = Utils.sh.realpath(RUNTIME.pluginDirPath)
-    if not plugin_path then
-        error("Could not get plugin path")
-    end
+    local plugin_west = Utils.fs.join_path(RUNTIME.pluginDirPath, "bin", "west")
+    local requirements = {
+        Utils.fs.join_path(RUNTIME.pluginDirPath, "scripts", "requirements.in"),
+        unpack(Utils.ensure_list(opts.additional_requirements or {})),
+    }
+    local cmd = require("cmd")
+    if not Utils.fs.exists(plugin_west) then
+        local requirement_flags = Utils.strings.join(
+            Utils.list_filter(function(req)
+                if not Utils.fs.exists(req) then
+                    Utils.wrn("Could'nt find requirement ", { req = req })
+                    return false
+                end
+                return true
+            end, requirements),
+            " -r "
+        )
 
-    local installation_west = Utils.fs.join_path(install_path, "west")
-    if not opts.additional_requirements then
-        local packaged_west = Utils.fs.join_path(RUNTIME.pluginDirPath, "bin", "west")
-        Utils.inf("Copying west shim to install path", { path = installation_west })
-        Utils.sh.cp(packaged_west, installation_west)
-        Utils.sh.chmod("+x", installation_west)
-        return {}
-    end
-    local requirements_txt = Utils.fs.join_path(plugin_path, "scripts", "requirements.txt")
-
-    local uv, _ = resolve_uv()
-
-    Utils.sh.exec({
-        uv,
-        "init",
-        "--script",
-        installation_west,
-        "--python",
-        PYTHON_VERSION,
-    }, { fail = true })
-    local requirement_flags = { "-r", requirements_txt }
-    -- Let uv resolve deps from requirements.in and write them into the inline metadata
-    if type(opts.additional_requirements) == "table" or type(opts.additional_requirements) == "string" then
-        Utils.inf("Adding additional dependencies: ", { reqs = opts.additional_requirements })
-        for _, req in ipairs(Utils.ensure_list(opts.additional_requirements)) do
-            if Utils.fs.exists(req) then
-                requirement_flags[#requirement_flags + 1] = "-r"
-                requirement_flags[#requirement_flags + 1] = req
-            else
-                Utils.wrn("Could'nt find requirement ", { req = req })
-            end
+        local uv = Utils.sh.which("uv")
+        if not uv then
+            error(
+                'uv not found on PATH. Ensure "uv" is declared in PLUGIN.depends '
+                    .. "and installed via mise (e.g. mise install uv)"
+            )
         end
+
+        cmd.exec(Utils.strings.join({
+            uv,
+            "init",
+            "--script",
+            plugin_west,
+            "--python",
+            PYTHON_VERSION,
+        }, " "))
+        -- Let uv resolve deps from requirements.in and write them into the inline metadata
+        cmd.exec(Utils.strings.join({
+            uv,
+            "add",
+            "--script",
+            plugin_west,
+            requirement_flags,
+        }, " "))
+        edit_west_script(plugin_west)
+        cmd.exec(Utils.strings.join({
+            uv,
+            "lock",
+            "--script",
+            plugin_west,
+        }, " "))
+        cmd.exec(Utils.strings.join({
+            "chmod",
+            "+x",
+            plugin_west,
+        }, " "))
+        Utils.inf("Created new plugin west shim based on requiements", { plugin_west = plugin_west })
     end
-    Utils.sh.exec({
-        uv,
-        "add",
-        "--script",
-        installation_west,
-        unpack(requirement_flags),
-    }, { fail = true })
-    edit_west_script(installation_west)
-    Utils.sh.chmod("+x", installation_west)
-    Utils.inf("Installed west shim", { script = installation_west })
+    local installation_west = Utils.fs.join_path(install_path, "west")
+    os.rename(plugin_west, installation_west)
+    os.rename(plugin_west .. ".lock", installation_west .. ".lock")
+    Utils.inf("Copied west shim to installation", { src = plugin_west, dst = installation_west })
 end
 
 --- Returns environment variables for the west shim.
@@ -148,25 +135,6 @@ function M.envs(ctx) -- luacheck: no unused args
     local env_vars = {
         { key = "PATH", value = install_path },
     }
-    local west_topdir_check = Utils.sh.exec(
-        { Utils.fs.join_path(install_path, "west"), "-qqq", "topdir" },
-        { silent = true }
-    )
-    local west_config_check = Utils.sh.exec(
-        { Utils.fs.join_path(install_path, "west"), "-qqq", "config", "zephyr.base", "--local" },
-        { silent = true }
-    )
-    if west_topdir_check and west_config_check then
-        local west_config_zephyr_base = Utils.sh.exec(
-            { Utils.fs.join_path(install_path, "west"), "config", "zephyr.base", "--local" },
-            { fail = true }
-        )
-        Utils.inf("Setting Zephyr Base")
-        Utils.list_extend(env_vars, {
-            { key = "ZEPHYR_BASE", value = west_config_zephyr_base },
-        })
-    end
-
     return env_vars
 end
 

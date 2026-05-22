@@ -7,8 +7,6 @@ _G.ZephyrSdk = _G.ZephyrSdk or {}
 ZephyrSdk._tools = {
     toolchain = true,
     west = true,
-}
-ZephyrSdk._targets = {
     ["aarch64"] = "aarch64-zephyr-elf",
     ["arc64"] = "arc64-zephyr-elf",
     ["arc"] = "arc-zephyr-elf",
@@ -22,15 +20,12 @@ ZephyrSdk._targets = {
     ["x86_64"] = "x86_64-zephyr-elf",
 }
 
----@type ToolOptions[]
-ZephyrSdk.tool_options = {}
-
 --- Build a thin wrapper around the generic `toolchain` module that injects the
 --- resolved toolchain name into opts. Lets callers use `zephyr-sdk:arm` as an
 --- alias for `zephyr-sdk:toolchain[toolchains='arm-zephyr-eabi']`.
 ---@param target string Full toolchain name (e.g. "arm-zephyr-eabi")
 ---@return ZephyrTool
-local function build_alias(target)
+local function build_toolchain_alias(target)
     local toolchain = require("toolchain")
     local inject = function(fn)
         return function(ctx, opts)
@@ -47,38 +42,17 @@ end
 --- Build an ncs-flavoured wrapper around the generic `toolchain` / `west` module.
 --- Keeps ncs packaged as a pseudo-tool (accessed via `ncs_<tool>`) without a
 --- dedicated registry entry.
----@return ZephyrTool
-local function build_ncs_toolchain_variant()
-    local tool = require("toolchain")
-    local ncs = require("extras.ncs")
-    return {
-        list_versions = ncs.list_versions,
-        install = ncs.install,
-        envs = function(ctx, opts)
-            local sdk_ctx = Utils.tbl_extend("force", ctx, {
-                install_path = Utils.fs.join_path(ctx.install_path, "opt", "zephyr-sdk"),
-            })
-            return tool.envs(sdk_ctx, opts)
-        end,
-    }
-end
 
 -- Lazy-load tool modules on first access; resolve toolchain aliases on demand.
 setmetatable(ZephyrSdk, {
     --- @param t table<string,ZephyrTool>
     __index = function(t, key)
-        if ZephyrSdk._tools[key] then
+        if type(ZephyrSdk._tools[key]) == "boolean" then
             t[key] = require(key)
             return t[key]
         end
-        local target = ZephyrSdk._targets[key]
-        if target then
-            t[key] = build_alias(target)
-            return t[key]
-        end
-        local base = key:match("^ncs_(.+)$")
-        if base == "toolchain" then
-            t[key] = build_ncs_toolchain_variant()
+        if type(ZephyrSdk._tools[key]) == "string" then
+            t[key] = build_toolchain_alias(ZephyrSdk._tools[key])
             return t[key]
         end
         error("Tool not registered " .. key)
