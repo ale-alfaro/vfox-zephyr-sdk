@@ -28,31 +28,6 @@ url = "https://github.com/jdx/hk/releases/download/v1.45.0/hk-aarch64-apple-darw
 checksum = "sha256:94c7c460d05748524a96583b656e8dec31a11a30ce6a997b9a5b5d8ec4d1b7e7"
 url = "https://github.com/jdx/hk/releases/download/v1.45.0/hk-x86_64-pc-windows-msvc.zip"
 
-[[tools.lua]]
-version = "5.1"
-backend = "vfox:mise-plugins/vfox-lua"
-
-[tools.lua."platforms.linux-arm64"]
-url = "https://www.lua.org/ftp/lua-5.1.tar.gz"
-
-[tools.lua."platforms.linux-arm64-musl"]
-url = "https://www.lua.org/ftp/lua-5.1.tar.gz"
-
-[tools.lua."platforms.linux-x64"]
-url = "https://www.lua.org/ftp/lua-5.1.tar.gz"
-
-[tools.lua."platforms.linux-x64-musl"]
-url = "https://www.lua.org/ftp/lua-5.1.tar.gz"
-
-[tools.lua."platforms.macos-arm64"]
-url = "https://www.lua.org/ftp/lua-5.1.tar.gz"
-
-[tools.lua."platforms.macos-x64"]
-url = "https://www.lua.org/ftp/lua-5.1.tar.gz"
-
-[tools.lua."platforms.windows-x64"]
-url = "https://www.lua.org/ftp/lua-5.1.tar.gz"
-
 [[tools.pkl]]
 version = "0.31.1"
 backend = "aqua:apple/pkl"

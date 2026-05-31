@@ -37,10 +37,13 @@ setmetatable(Utils, {
         end
     end,
 })
---- Returns the current OS name lowercased.
+local os_map = { darwin = "macos", linux = "linux", windows = "windows" }
+--- Returns the current OS name lowercased, normalized to Zephyr SDK naming
+--- (macOS reports as "darwin" via RUNTIME.osType but SDK assets use "macos").
 ---@return string
 function Utils.os()
-    return RUNTIME.osType:lower()
+    local os = RUNTIME.osType:lower()
+    return os_map[os] or os
 end
 
 local arch_map = { amd64 = "x86_64", arm64 = "aarch64", x86_64 = "x86_64", aarch64 = "aarch64" }
