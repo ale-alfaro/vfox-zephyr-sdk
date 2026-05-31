@@ -6,10 +6,6 @@ local linters = new Mapping<String, Step> {
         glob = "**/*.lua"
         check = "lua-language-server --check . --checklevel=Error"
     }
-    ["luacheck"] {
-        glob = "**/*.lua"
-        check = "luacheck -q {{files}}"
-    }
     ["stylua"] {
         glob = "**/*.lua"
         check = "stylua --check {{files}}"

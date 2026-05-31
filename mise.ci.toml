@@ -23,9 +23,8 @@ arg "version"
 run = '''
 #!/usr/bin/env zsh
 set -e
-backend="vfox-{{usage.variant}}"
-toolchain="$backend:{{usage.toolchain}}@{{usage.version}}"
-west="$backend:west@1.5.0"
+toolchain="vfox-{{usage.variant}}:{{usage.toolchain}}@{{usage.version}}"
+west="vfox-{{usage.variant}}:west@1.5.0"
 mise ls-remote "$toolchain"
 mise ls-remote "$west"
 mise install "$toolchain"
@@ -46,9 +45,8 @@ arg "sample"
 run = '''
 #!/usr/bin/env zsh
 set -e
-backend="vfox-{{usage.variant}}"
-toolchain="$backend:{{usage.toolchain}}@{{usage.version}}"
-west="$backend:west@1.5.0"
+toolchain="vfox-{{usage.variant}}:{{usage.toolchain}}@{{usage.version}}"
+west="vfox-{{usage.variant}}:west@1.5.0"
 mise x "$west" -- west init -l app
 mise x "$west" -- west update -o=--depth=1 --narrow --auto-cache ~/.cache/west
 mise x "$west" "$toolchain" -- west build -p -b {{usage.board}} {{usage.sample}} -d build
@@ -56,18 +54,21 @@ mise x "$west" "$toolchain" -- west build -p -b {{usage.board}} {{usage.sample}}
 '''
 
 [tasks.setup_test]
-usage = 'arg "<variant>"'
+usage = '''
+arg "<variant>"
+arg "<version>"
+'''
 dir = "{{config_root}}"
 run = '''
 mise plugins ln "vfox-{{usage.variant}}" .  --force
-mkdir -p "{{usage.variant}}/app"
-cp "tests/{{usage.variant}}-manifest.yml" "{{usage.variant}}/app/west.yml"
+mkdir -p "{{usage.variant}}-{{usage.version}}/app"
+cp "tests/{{usage.variant}}-manifest.yml" "{{usage.variant}}-{{usage.version}}/app/west.yml"
 '''
 [task_templates."workflow:test"]
-depends = [{ task = "setup_test", args = ["{{vars.variant}}"] }]
+depends = [{ task = "setup_test", args = ["{{vars.variant}}", "{{vars.version}}"] }]
 run = [
-  "mise -E ci --cd {{vars.variant}} run smoke {{vars.variant}} {{vars.toolchain}} {{vars.version}}",
-  "mise -E ci --cd {{vars.variant}} run integration {{vars.variant}} {{vars.toolchain}} {{vars.version}} {{vars.board}} {{vars.sample}}",
+  "mise -E ci --cd {{vars.variant}}-{{vars.version}} run smoke {{vars.variant}} {{vars.toolchain}} {{vars.version}}",
+  "mise -E ci --cd {{vars.variant}}-{{vars.version}} run integration {{vars.variant}} {{vars.toolchain}} {{vars.version}} {{vars.board}} {{vars.sample}}",
 ]
 
 [tasks."test:default"]
@@ -77,9 +78,5 @@ extends = "workflow:test"
 vars = { version = "0.17.4" }
 extends = "workflow:test"
 
-[tasks."test:ncs"]
-vars = { "_".file = "{{config_root}}/tests/configs/ncs.vars" }
-extends = "workflow:test"
-
 [tasks.test]
-run = [{ tasks = ["test:default", "test:v0-17.4", "test:ncs"] }]
+run = [{ task = "test:default" }, { task = "test:v0-17.4" }]

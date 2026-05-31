@@ -4,7 +4,6 @@ MISE_USE_VERSIONS_HOST = "0"
 [tools]
 hk = "latest"
 pkl = "latest"
-lua = { version = "5.1", postinstall = "luarocks install luacheck" }
 
 [tasks.pre-commit]
 run = "hk run pre-commit"

@@ -137,8 +137,7 @@ function M.install(ctx, opts)
     local asset = Utils.store.fetch_toolchain_asset(STORE_KEY, github_fetch_releases, version)
 
     if not asset then
-        Utils.fatal("Toolchain assets could not be found locally or online", { version = version, key = STORE_KEY })
-        error()
+        error("Toolchain assets could not be found locally or online " .. version)
     end
 
     Utils.inf("Downloading minimal-zephyr-sdk", { asset = asset })
