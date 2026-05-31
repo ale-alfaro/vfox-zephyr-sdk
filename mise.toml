@@ -1,0 +1,31 @@
+[env]
+MISE_USE_VERSIONS_HOST = "0"
+
+[tools]
+hk = "latest"
+pkl = "latest"
+lua = { version = "5.1", postinstall = "luarocks install luacheck" }
+
+[tasks.pre-commit]
+run = "hk run pre-commit"
+
+[task_templates."test:local"]
+allow_env = ["MISE_USE_VERSIONS_HOST"]
+vars = { ZEPHYR_SDK_VERSION = "0.17.0" }
+run = '''
+# Link for development
+mise deactivate
+mise plugins ln vfox-zephyr-test . --force
+mise ls-remote vfox-zephyr-test:west
+mise ls-remote vfox-zephyr-test:arm
+mise install vfox-zephyr-test:arm@{{vars.ZEPHYR_SDK_VERSION}}
+mise install vfox-zephyr-test:west
+mise exec vfox-zephyr-test:arm@{{vars.ZEPHYR_SDK_VERSION}} -- arm-zephyr-eabi-gcc --version
+mise exec vfox-zephyr-test:west -- west --version
+mise rm vfox-zephyr-test:arm --yes
+mise rm vfox-zephyr-test:west --yes
+'''
+
+[tasks.test]
+description = "Test plugin locally"
+extends = "test:local"
