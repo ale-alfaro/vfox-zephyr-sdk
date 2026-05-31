@@ -82,16 +82,8 @@ function M.install(ctx)
             " -r "
         )
 
-        local uv = Utils.sh.which("uv")
-        if not uv then
-            error(
-                'uv not found on PATH. Ensure "uv" is declared in PLUGIN.depends '
-                    .. "and installed via mise (e.g. mise install uv)"
-            )
-        end
-
         cmd.exec(Utils.strings.join({
-            uv,
+            "uv",
             "init",
             "--script",
             plugin_west,
@@ -100,7 +92,7 @@ function M.install(ctx)
         }, " "))
         -- Let uv resolve deps from requirements.in and write them into the inline metadata
         cmd.exec(Utils.strings.join({
-            uv,
+            "uv",
             "add",
             "--script",
             plugin_west,
@@ -108,7 +100,7 @@ function M.install(ctx)
         }, " "))
         edit_west_script(plugin_west)
         cmd.exec(Utils.strings.join({
-            uv,
+            "uv",
             "lock",
             "--script",
             plugin_west,
