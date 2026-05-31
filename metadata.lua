@@ -4,7 +4,7 @@
 
 PLUGIN = {
     name = "zephyr",
-    version = "0.4.0",
+    version = "0.4.2",
     description = "A mise backend plugin for the Zephyr SDK (arm-zephyr-eabi toolchain)",
     author = "ale-alfaro",
     depends = { "cmake", "uv" },
