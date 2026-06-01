@@ -26,36 +26,7 @@ local M = {}
 
 ---@return string[] versions
 M.list_versions = function()
-    ---We want uvx not uv because we run `pip index` which is not in the `uv pip` interface
-    -- local _, uvx = resolve_uv()
-    -- local versions_json = Utils.sh.exec({
-    --     uvx,
-    --     "pip",
-    --     "index",
-    --     "versions",
-    --     "west",
-    --     "--only-final",
-    --     ":all:",
-    --     "--python-version",
-    --     "3.12",
-    --     "--json",
-    -- })
-    -- if not versions_json then
-    --     Utils.wrn("Versions couldn't be fetched from pypi")
-    --     return { "1.5.0" }
-    -- end
-    -- local json = require("json")
-    -- local ok, decoded = pcall(json.decode, versions_json)
-    --
-    -- if not ok or not decoded.versions then
-    --     error("Versions couldn't be decoded:" .. decoded)
-    -- end
-    -- local versions = Utils.list_filter(function(v)
-    --     return Utils.semver.compare(MIN_VERSION, v) <= 0
-    -- end, decoded.versions)
-    -- Utils.dbg("Versions :", { versions = versions })
-
-    return { "1.5.0" }
+    return { "1.5.0" } --- only supporting newest west version
 end
 --- Generates and installs the west shim script into the mise install path.
 --- Uses `uv add --script -r requirements.in` to resolve and inline all
