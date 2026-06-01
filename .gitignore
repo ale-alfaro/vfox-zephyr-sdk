@@ -19,6 +19,7 @@ Thumbs.db
 *.log
 zephyr-sdk-*
 *_store.json
+*_store.ts
 
 # Test isolation
 .test-mise-data/
