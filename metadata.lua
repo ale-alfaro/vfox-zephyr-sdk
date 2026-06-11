@@ -3,9 +3,9 @@
 -- Documentation: https://mise.jdx.dev/backend-plugin-development.html
 
 PLUGIN = {
-    name = "zephyr",
-    version = "0.4.2",
-    description = "A mise backend plugin for the Zephyr SDK (arm-zephyr-eabi toolchain)",
+    name = "vfox-zephyr-sdk",
+    version = "0.4.3",
+    description = "A mise backend plugin for the Zephyr SDK and West tools fo zephyr-rtos development",
     author = "ale-alfaro",
     depends = { "cmake", "uv" },
     homepage = "https://ale-alfaro.github.io",

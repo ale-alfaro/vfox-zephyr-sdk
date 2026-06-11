@@ -146,7 +146,7 @@ function M.install(ctx, opts)
         asset.download_url,
         install_path,
         download_path,
-        { name = "zephr-sdk-" .. version, strip_components = 1 }
+        { name = "zephyr-sdk-" .. version, strip_components = 1 }
     )
     if toolchain_opts.toolchains then
         if run_setup(install_path, toolchain_opts) ~= 0 then
