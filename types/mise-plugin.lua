@@ -320,7 +320,7 @@ Utils.http = {}
 ---@field archived_asset_download fun(url: string, install_dir: string, download_dir: string, asset_opts?: table): string? Download and extract archive
 ---@field executable_asset_download fun(url: string, install_dir: string, exe_name?: string): string? Download executable
 ---@field get_json_payload fun(request: string|HttpRequestOpts, filter_fn?: function, key_to_filter?: string): table? Fetch and parse JSON
----@field decompress_strip_components fun(install_dir:string ,archive_path:string,components:number):string?
+---@field decompress_strip_components fun(archive_path:string, install_dir:string, root_dir:string):string?
 Utils.net = {}
 
 -- json module --------------------------------------------------------

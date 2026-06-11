@@ -115,23 +115,44 @@ function M.github_asset_download(repo, asset_id, install_path, download_path)
     return install_path
 end
 
----@param install_dir string
----@param archive_path string
----@param components number
-function M.decompress_strip_components(archive_path, install_dir, components)
+--- Decompress an archive whose payload is nested under a single top-level
+--- directory, promoting that directory's contents into `install_dir`
+--- (the native-archiver equivalent of `tar --strip-components=1`).
+---@param archive_path string Downloaded archive
+---@param install_dir string Destination (pre-created empty by mise)
+---@param root_dir string Name of the archive's single top-level directory
+---@return string?
+function M.decompress_strip_components(archive_path, install_dir, root_dir)
     Utils.validate("archive_path", archive_path, "string")
     Utils.validate("install_dir", install_dir, "string")
-    Utils.validate("components", components, "number")
+    Utils.validate("root_dir", root_dir, "string")
+    local archiver = require("archiver")
+    local extract_dir = Utils.fs.dirname(archive_path)
     Utils.dbg(
-        "Extracting SDK and stripping components",
-        { archive = archive_path, dest = install_dir, components = components }
+        "Extracting SDK and stripping top-level directory",
+        { archive = archive_path, dest = install_dir, root = root_dir }
     )
-    Utils.sh.exec(
-        { "tar", "xvf", archive_path, "--directory", install_dir, "--strip-components=" .. components },
-        { fail = true }
-    )
-
+    local err = archiver.decompress(archive_path, extract_dir)
+    if err ~= nil then
+        Utils.fatal("Extraction failed", { archive = archive_path, dest = extract_dir, err = err })
+    end
+    local stripped = Utils.fs.join_path(extract_dir, root_dir)
+    if not Utils.fs.path_exists(stripped, { type = "directory" }) then
+        Utils.fatal("Archive top-level directory not found after extraction", { expected = stripped })
+    end
+    -- install_dir is created empty by mise; swap in the stripped root via an
+    -- atomic rename (download and install dirs share a filesystem).
+    os.remove(install_dir)
+    local ok, rename_err = os.rename(stripped, install_dir)
+    if not ok then
+        Utils.fatal("Failed to move stripped archive into install path", {
+            from = stripped,
+            to = install_dir,
+            err = rename_err,
+        })
+    end
     os.remove(archive_path)
+    return install_dir
 end
 
 ---@param url string
@@ -155,8 +176,7 @@ function M.archived_asset_download(url, install_dir, download_dir, asset_opts)
         return nil
     end
     if asset_opts.strip_components then
-        M.decompress_strip_components(packaged_asset, install_dir, asset_opts.strip_components)
-        return install_dir
+        return M.decompress_strip_components(packaged_asset, install_dir, asset_opts.name)
     else
         local asset = Utils.fs.join_path(install_dir, asset_opts.name or archive_name:gsub("(%.%w+)", ""))
         err = archiver.decompress(packaged_asset, asset)
