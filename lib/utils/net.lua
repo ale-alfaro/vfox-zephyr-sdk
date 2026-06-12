@@ -127,10 +127,15 @@ function M.decompress_strip_components(archive_path, install_dir, root_dir)
     Utils.validate("install_dir", install_dir, "string")
     Utils.validate("root_dir", root_dir, "string")
     local archiver = require("archiver")
-    local extract_dir = Utils.fs.dirname(archive_path)
+    -- Extract into install_dir's parent (not the download dir): the stripped
+    -- root and install_dir are then both direct children of the same directory,
+    -- so the rename below is guaranteed to stay on one filesystem. Renaming
+    -- across the download/install boundary is not (it can be a separate mount,
+    -- e.g. on CI runners), which makes os.rename fail with EXDEV.
+    local extract_dir = Utils.fs.dirname(install_dir)
     Utils.dbg(
         "Extracting SDK and stripping top-level directory",
-        { archive = archive_path, dest = install_dir, root = root_dir }
+        { archive = archive_path, dest = install_dir, extract_dir = extract_dir, root = root_dir }
     )
     local err = archiver.decompress(archive_path, extract_dir)
     if err ~= nil then
@@ -141,7 +146,7 @@ function M.decompress_strip_components(archive_path, install_dir, root_dir)
         Utils.fatal("Archive top-level directory not found after extraction", { expected = stripped })
     end
     -- install_dir is created empty by mise; swap in the stripped root via an
-    -- atomic rename (download and install dirs share a filesystem).
+    -- atomic same-filesystem rename.
     os.remove(install_dir)
     local ok, rename_err = os.rename(stripped, install_dir)
     if not ok then
@@ -150,6 +155,12 @@ function M.decompress_strip_components(archive_path, install_dir, root_dir)
             to = install_dir,
             err = rename_err,
         })
+    end
+    -- Verify the move actually landed rather than trusting os.rename's return
+    -- value alone, so a silent no-op surfaces here instead of as a confusing
+    -- downstream failure (e.g. chmod on a missing setup.sh).
+    if not Utils.fs.path_exists(install_dir, { type = "directory" }) then
+        Utils.fatal("Install path missing after move", { install_dir = install_dir, from = stripped })
     end
     os.remove(archive_path)
     return install_dir
