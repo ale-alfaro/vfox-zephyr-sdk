@@ -42,12 +42,13 @@ hide = true
 run = '''
 #!/usr/bin/env zsh
 rm -rf {{vars.test_sandbox}}
-mkdir -p backup
-[[ -f bin/west ]] && cp bin/* backup/
 mise prune --tools --yes
 mise plugins rm vfox-zephyr-test --silent
 mise cache c
-[[ -f backup/west ]] && cp backup/* bin/
+# west's install moves bin/west out of the linked plugin dir (os.rename), so
+# restore the committed shim from git instead of a manual backup/restore.
+git checkout -- bin/west bin/west.lock 2>/dev/null || true
+:
 '''
 
 
