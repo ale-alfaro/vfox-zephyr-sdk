@@ -34,4 +34,4 @@ jobs:
       - name: Lua typecheck and linting
         run: mise run lint
       - name: Run tests
-        run: mise run test --timeout 10m
+        run: mise test:run --timeout 10m

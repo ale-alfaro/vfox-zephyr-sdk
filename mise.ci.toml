@@ -2,81 +2,78 @@
 MISE_USE_VERSIONS_HOST = "0"
 
 [vars]
-"_".file = "{{config_root}}/tests/configs/default.vars"
+test_sandbox = "tests/sandbox"
+test_manifest = "tests/zephyr-manifest.yml"
 
 [tools]
-uv = "latest"
-cmake = "latest"
 lua-language-server = "latest"
 
 [tasks.lint]
 description = "Lint Lua sources"
 run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP:-/tmp}/luals-log"'
 
-[tasks.smoke]
-dir = "{{cwd}}"
-usage = '''
-arg "variant"
-arg "toolchain"
-arg "version"
-  '''
+[tasks."test:setup_sandbox"]
+hide = true
 run = '''
-#!/usr/bin/env zsh
-set -e
-toolchain="vfox-{{usage.variant}}:{{usage.toolchain}}@{{usage.version}}"
-west="vfox-{{usage.variant}}:west@1.5.0"
+[[ -d {{vars.test_sandbox}} ]] && rm -rf {{vars.test_sandbox}}
+mise_toml={{vars.test_sandbox}}/mise.local.toml
+app_dir={{vars.test_sandbox}}/app
+mkdir -p "$app_dir"
+mise trust {{vars.test_sandbox}}
+mise generate config "$mise_toml" -t tests/configs/.tool_versions
+mise config set hooks.cd --file "$mise_toml" 'mise install -q && mise reshim'
+mise config set vars._.file --file "$mise_toml" {{config_root}}/tests/configs/.vars
+echo '
+[tasks.test]
+description = "Test plugin "
+extends = "test:integration"
+' >> "$mise_toml"
+cp tests/zephyr-manifest.yml "${app_dir}/west.yml"
+'''
+
+
+[tasks."test:setup_plugin"]
+hide = true
+depends = ['test:setup_sandbox']
+run = '''
+mise plugins ln vfox-zephyr-test .  --force
+toolchain="vfox-zephyr-test:arm"
+west="vfox-zephyr-test:west"
 mise ls-remote "$toolchain"
 mise ls-remote "$west"
-mise install "$toolchain"
-mise install "$west"
-mise x "$toolchain" -- arm-zephyr-eabi-gcc --version
+mise x "${toolchain}@0.17.0" -- arm-zephyr-eabi-gcc --version
 mise x "$west" -- west --version
 '''
 
-[tasks.integration]
-dir = "{{cwd}}"
-usage = '''
-arg "variant"
-arg "toolchain"
-arg "version"
-arg "board"
-arg "sample"
+[tasks."test:cleanup"]
+hide = true
+run = '''
+rm -rf {{vars.test_sandbox}}
+mise prune --tools --yes
+mise plugins rm vfox-zephyr-test --silent
+mise cache c
 '''
+
+[tasks."test:run"]
+dir = "{{vars.test_sandbox}}"
+depends = ['test:setup_plugin']
+run = '''
+[[ ! -f mise.local.toml ]] && echo "mise.local.toml not generated" && exit 1
+mise run test
+'''
+depends_post = ["test:cleanup"]
+
+
+[task_templates."test:integration"]
+description = "Test for backend plugin"
+dir = "{{cwd}}"
 run = '''
 #!/usr/bin/env zsh
-set -e
-toolchain="vfox-{{usage.variant}}:{{usage.toolchain}}@{{usage.version}}"
-west="vfox-{{usage.variant}}:west@1.5.0"
-mise x "$west" -- west init -l app
-mise x "$west" -- west update -o=--depth=1 --narrow --auto-cache ~/.cache/west
-mise x "$west" "$toolchain" -- west build -p -b {{usage.board}} {{usage.sample}} -d build
+if [[ -d ".west" ]]; then
+  echo "Task must be run inside a sandboxed workspace!"
+fi
+west init -l app
+west update -o=--depth=1 --narrow
+ZEPHYR_BASE={{cwd}}/zephyr west build -p -b {{vars.board}} {{vars.sample}}
 [[ -d build ]] || { echo "build dir missing"; exit 1 }
 '''
-
-[tasks.setup_test]
-usage = '''
-arg "<variant>"
-arg "<version>"
-'''
-dir = "{{config_root}}"
-run = '''
-mise plugins ln "vfox-{{usage.variant}}" .  --force
-mkdir -p "{{usage.variant}}-{{usage.version}}/app"
-cp "tests/{{usage.variant}}-manifest.yml" "{{usage.variant}}-{{usage.version}}/app/west.yml"
-'''
-[task_templates."workflow:test"]
-depends = [{ task = "setup_test", args = ["{{vars.variant}}", "{{vars.version}}"] }]
-run = [
-  "mise -E ci --cd {{vars.variant}}-{{vars.version}} run smoke {{vars.variant}} {{vars.toolchain}} {{vars.version}}",
-  "mise -E ci --cd {{vars.variant}}-{{vars.version}} run integration {{vars.variant}} {{vars.toolchain}} {{vars.version}} {{vars.board}} {{vars.sample}}",
-]
-
-[tasks."test:default"]
-extends = "workflow:test"
-
-[tasks."test:v0-17.4"]
-vars = { version = "0.17.4" }
-extends = "workflow:test"
-
-[tasks.test]
-run = [{ task = "test:default" }, { task = "test:v0-17.4" }]
