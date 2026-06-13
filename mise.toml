@@ -25,6 +25,6 @@ mise rm vfox-zephyr-test:arm --yes
 mise rm vfox-zephyr-test:west --yes
 '''
 
-[tasks.test]
+[tasks."smoke:test"]
 description = "Test plugin locally"
 extends = "test:local"
