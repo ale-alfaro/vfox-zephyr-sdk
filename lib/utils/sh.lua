@@ -24,7 +24,7 @@ function M.exec(exec_cmd, opts)
     local sh_cmd = Utils.strings.join(Utils.ensure_list(exec_cmd), " ") or ""
     Utils.dbg("sh.exec: " .. sh_cmd)
     -- Forward only the keys cmd.exec understands; our extras (fail/silent) stay here.
-    local cmd_opts = { cwd = opts.cwd, env = opts.env, timeout = opts.timeout }
+    local cmd_opts = Utils.tbl_extend("force", { timeout = 10.0 }, opts)
     local ok, result = pcall(cmd.exec, sh_cmd, cmd_opts)
     if not ok then
         if not opts.silent then
@@ -55,9 +55,7 @@ end
 ---@param exe string Executable name
 ---@return string? path Full path to executable, or nil if not found
 function M.which(exe)
-    local mise = M.exec({ "which", "mise" }, { silent = true })
-        or Utils.fs.join_path(os.getenv("HOME") or "~", ".local", "bin", "mise")
-    local bin_path = M.exec({ mise, "which", exe }, { silent = true }) or M.exec({ "which", exe }, { silent = true })
+    local bin_path = M.exec({ "which", exe }, { silent = true }) or M.exec({ "mise", "which", exe }, { silent = true })
     return (bin_path ~= "") and bin_path or nil
 end
 

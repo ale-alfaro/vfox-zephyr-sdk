@@ -98,6 +98,15 @@ function M.envs(ctx) -- luacheck: no unused args
     local env_vars = {
         { key = "PATH", value = install_path },
     }
+    -- The shim runs via `uv run --script` (PEP 723), so uv must be on PATH at
+    -- runtime. mise's `depends` (metadata.lua) only provides uv to the install
+    -- hook, not at exec time, so resolve the mise-managed uv here and expose it.
+    local uv_dir = Utils.sh.whichdir("uv")
+    if uv_dir then
+        env_vars[#env_vars + 1] = { key = "PATH", value = uv_dir }
+    else
+        Utils.wrn("uv not found; the west shim requires uv at runtime (e.g. `mise use uv`)")
+    end
     return env_vars
 end
 

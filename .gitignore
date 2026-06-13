@@ -25,3 +25,4 @@ zephyr-sdk-*
 .test-mise-data/
 *-fake-workspace/
 /tests/sandbox/
+/backup
