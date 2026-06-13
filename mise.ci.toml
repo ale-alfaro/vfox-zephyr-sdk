@@ -21,14 +21,8 @@ app_dir={{vars.test_sandbox}}/app
 mkdir -p "$app_dir"
 mise trust {{vars.test_sandbox}}
 mise generate config "$mise_toml" -t tests/configs/.tool_versions
-mise config set hooks.cd --file "$mise_toml" 'mise install -q && mise reshim'
-mise config set vars._.file --file "$mise_toml" {{config_root}}/tests/configs/.vars
-echo '
-[tasks.test]
-description = "Test plugin "
-extends = "test:integration"
-' >> "$mise_toml"
 cp tests/zephyr-manifest.yml "${app_dir}/west.yml"
+mise config set vars._.file --file "$mise_toml" {{config_root}}/tests/configs/.vars
 '''
 
 
@@ -37,43 +31,41 @@ hide = true
 depends = ['test:setup_sandbox']
 run = '''
 mise plugins ln vfox-zephyr-test .  --force
-toolchain="vfox-zephyr-test:arm"
-west="vfox-zephyr-test:west"
-mise ls-remote "$toolchain"
-mise ls-remote "$west"
-mise x "${toolchain}@0.17.0" -- arm-zephyr-eabi-gcc --version
-mise x "$west" -- west --version
+# Only verify the plugin links and resolves versions here; actual tool
+# install/exec (which needs the sandbox's declared uv) is covered by test:run.
+mise ls-remote "vfox-zephyr-test:arm"
+mise ls-remote "vfox-zephyr-test:west"
 '''
 
 [tasks."test:cleanup"]
 hide = true
 run = '''
+#!/usr/bin/env zsh
 rm -rf {{vars.test_sandbox}}
+mkdir -p backup
+[[ -f bin/west ]] && cp bin/* backup/
 mise prune --tools --yes
 mise plugins rm vfox-zephyr-test --silent
 mise cache c
+[[ -f backup/west ]] && cp backup/* bin/
 '''
+
 
 [tasks."test:run"]
 dir = "{{vars.test_sandbox}}"
+description = "Test for backend plugin"
 depends = ['test:setup_plugin']
 run = '''
-[[ ! -f mise.local.toml ]] && echo "mise.local.toml not generated" && exit 1
-mise run test
-'''
-depends_post = ["test:cleanup"]
-
-
-[task_templates."test:integration"]
-description = "Test for backend plugin"
-dir = "{{cwd}}"
-run = '''
 #!/usr/bin/env zsh
-if [[ -d ".west" ]]; then
-  echo "Task must be run inside a sandboxed workspace!"
-fi
-west init -l app
-west update -o=--depth=1 --narrow
-ZEPHYR_BASE={{cwd}}/zephyr west build -p -b {{vars.board}} {{vars.sample}}
+[[ ! -f mise.local.toml ]] && echo "NO mise.local.toml found" && exit 1
+mise use uv
+mise use cmake
+mise ls
+mise x vfox-zephyr-test:west -- west init -l app
+mise x vfox-zephyr-test:west -- west update -o=--depth=1 --narrow
+[[ -d zephyr ]] || { echo "Zephyr base missing"; exit 1 }
+mise set ZEPHYR_BASE="$PWD/zephyr"
+mise x vfox-zephyr-test:west  vfox-zephyr-test:arm@0.17.0 -- west build -p -b reel_board zephyr/samples/hello_world
 [[ -d build ]] || { echo "build dir missing"; exit 1 }
 '''
+depends_post = ["test:cleanup"]
