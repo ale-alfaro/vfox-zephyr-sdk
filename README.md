@@ -19,32 +19,39 @@ Zephyr picks a compiler through `ZEPHYR_TOOLCHAIN_VARIANT`. This plugin exposes
 each supported variant as its own mise tool, so the **tool name is the variant**
 — no options to remember, nothing to get confused about:
 
-| Tool name(s)                              | `ZEPHYR_TOOLCHAIN_VARIANT` | Source                                   | Notes                          |
-| ----------------------------------------- | -------------------------- | ---------------------------------------- | ------------------------------ |
-| `arm`, `aarch64`, `riscv64`, `x86_64`, …  | `zephyr`                   | Zephyr SDK GNU cross-compilers           | one tool per target arch       |
-| `llvm`                                    | `llvm`                     | Zephyr SDK LLVM/Clang                    | Zephyr SDK **>= 1.0.0** only    |
-| `gnuarmemb`                               | `gnuarmemb`                | Arm GNU Toolchain (`arm-none-eabi`)      | separate tool, Arm versioning  |
+| Tool name(s)                              | `ZEPHYR_TOOLCHAIN_VARIANT` | Source                                   | Tool options |
+| ----------------------------------------- | -------------------------- | ---------------------------------------- | ------------ |
+| `arm`, `aarch64`, `riscv64`, `x86_64`, …  | `zephyr`                   | Zephyr SDK GNU cross-compilers           | none (target fixed by name) |
+| `toolchain`                               | `zephyr`                   | Zephyr SDK GNU cross-compilers           | `toolchains`, `hosttools`, `cmake_pkg` |
+| `llvm`                                    | `llvm`                     | Zephyr SDK LLVM/Clang (**>= 1.0.0**)     | none |
+| `gnuarmemb`                               | `gnuarmemb`                | Arm GNU Toolchain (`arm-none-eabi`)      | none |
 
 Switching is just switching tools:
 
 ```bash
-mise use zephyr-sdk:arm@0.17.0        # ZEPHYR_TOOLCHAIN_VARIANT=zephyr
-mise use zephyr-sdk:llvm@1.0.0        # ZEPHYR_TOOLCHAIN_VARIANT=llvm
-mise use zephyr-sdk:gnuarmemb@14.2.rel1  # ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
+mise use zephyr-sdk:arm@0.17.0           # ZEPHYR_TOOLCHAIN_VARIANT=zephyr
+mise use zephyr-sdk:llvm@1.0.0           # ZEPHYR_TOOLCHAIN_VARIANT=llvm
+mise use zephyr-sdk:gnuarmemb@15.2.rel1  # ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
 ```
 
-**Only the selected target is installed.** Each `zephyr`/`llvm` tool runs the
-SDK `setup.sh` with a single `-t <target>` — it never installs every toolchain.
-Host tools and the CMake package registration are **opt-in**, off by default:
+`llvm` and `gnuarmemb` are **standalone, option-less** tools: the tool name is
+the whole configuration, so there is nothing to get wrong.
+
+**The GNU (`zephyr`) side never installs everything.** The arch tools each
+install exactly their one target. The general `toolchain` tool takes options and
+**defaults to installing only `arm-zephyr-eabi`** when given none:
 
 ```bash
-# Add host tools (openocd, qemu, …) and/or register the CMake package
-mise install zephyr-sdk:arm@0.17.0 --hosttools --cmake_pkg
+mise install zephyr-sdk:toolchain@0.17.0                       # -> arm-zephyr-eabi only
+mise install zephyr-sdk:toolchain@0.17.0 --toolchains=riscv64  # pick another target
+mise install zephyr-sdk:toolchain@0.17.0 --hosttools --cmake_pkg  # opt in to extras
 ```
 
-`gnuarmemb` is managed independently of the Zephyr SDK: it has its own download
-source (Arm), its own version scheme (e.g. `14.2.rel1`), and its own install
-path. Any Arm-published version works, not just the ones shown by `ls-remote`.
+Host tools and CMake-package registration are always **opt-in**, off by default.
+
+`gnuarmemb` is managed independently of the Zephyr SDK: its own download source
+(Arm), version scheme (e.g. `15.2.rel1`), and install path. Any Arm-published
+version works, not just the ones shown by `ls-remote`.
 
 ### West via uv script
 

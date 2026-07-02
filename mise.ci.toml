@@ -12,6 +12,13 @@ lua-language-server = "latest"
 description = "Lint Lua sources"
 run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP:-/tmp}/luals-log"'
 
+[tasks."test:unit"]
+description = "Offline unit tests for toolchain-variant logic (llvm, gnuarmemb, defaults)"
+# Lua 5.1 matches the gopher-lua runtime the plugin runs under. The spec stubs
+# the mise globals, so it needs no network, no mise backend and no real install.
+tools = { lua = "5.1" }
+run = "lua tests/unit/variants_spec.lua"
+
 [tasks."test:setup_sandbox"]
 hide = true
 run = '''
@@ -35,6 +42,10 @@ mise plugins ln vfox-zephyr-test .  --force
 # install/exec (which needs the sandbox's declared uv) is covered by test:run.
 mise ls-remote "vfox-zephyr-test:arm"
 mise ls-remote "vfox-zephyr-test:west"
+# The variant tools must resolve too: llvm is gated to SDK >= 1.0.0 and
+# gnuarmemb has its own (Arm) version list.
+mise ls-remote "vfox-zephyr-test:llvm"
+mise ls-remote "vfox-zephyr-test:gnuarmemb"
 '''
 
 [tasks."test:cleanup"]

@@ -7,17 +7,22 @@ _G.ZephyrSdk = _G.ZephyrSdk or {}
 --- below resolves the tool on first access:
 ---   * `true`  -> a dedicated module loaded via `require(<key>)`
 ---     (e.g. `toolchain`, `west`, `gnuarmemb`).
----   * table   -> a `zephyr`/`llvm` variant alias over the shared `toolchain`
----     module (see `ZephyrSdk.VariantSpec`). The tool name doubles as the
----     `ZEPHYR_TOOLCHAIN_VARIANT` mental model: arch names are the `zephyr`
----     (GNU) variant, `llvm` is the LLVM variant.
+---   * table   -> a `zephyr` (GNU) variant alias over the shared `toolchain`
+---     module (see `ZephyrSdk.VariantSpec`), one per SDK cross-compiler target.
 ---   * string  -> shorthand for `{ target = <string>, family = "zephyr" }`.
+---
+--- The tool name doubles as the `ZEPHYR_TOOLCHAIN_VARIANT` mental model:
+--- arch names (arm, aarch64, …) are the `zephyr` GNU variant, while `llvm` and
+--- `gnuarmemb` are standalone, option-less variant tools of their own.
 ---@class ZephyrSdk._tools : table<string, ZephyrTool>
 ZephyrSdk._tools = {
     toolchain = true,
     west = true,
-    -- GNU Arm Embedded (arm-none-eabi) lives outside the Zephyr SDK: separate
-    -- download source, versioning and install layout, so it is its own module.
+    -- Standalone, option-less variant tools. `llvm` is the SDK-packaged
+    -- LLVM/Clang variant (SDK >= 1.0.0); `gnuarmemb` is the Arm GNU Toolchain
+    -- (arm-none-eabi), which lives outside the SDK with its own source,
+    -- versioning and install layout.
+    llvm = true,
     gnuarmemb = true,
     -- `zephyr` (GNU) variant: one entry per Zephyr SDK cross-compiler target.
     ["aarch64"] = { target = "aarch64-zephyr-elf", family = "zephyr" },
@@ -31,8 +36,6 @@ ZephyrSdk._tools = {
     ["rx"] = { target = "rx-zephyr-elf", family = "zephyr" },
     ["sparc"] = { target = "sparc-zephyr-elf", family = "zephyr" },
     ["x86_64"] = { target = "x86_64-zephyr-elf", family = "zephyr" },
-    -- `llvm` variant: SDK-packaged LLVM/Clang, only available for SDK >= 1.0.0.
-    ["llvm"] = { target = "llvm", family = "llvm" },
 }
 
 ---@class ZephyrSdk.VariantSpec

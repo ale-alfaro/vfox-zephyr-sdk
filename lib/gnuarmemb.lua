@@ -16,7 +16,7 @@ local DOWNLOAD_BASE = "https://developer.arm.com/-/media/Files/downloads/gnu"
 -- Versions surfaced by `ls-remote`. install() builds the download URL on demand
 -- so any Arm-published version string also works, matching the requirement to
 -- support gnuarmemb "regardless of version".
-local KNOWN_VERSIONS = { "14.3.rel1", "14.2.rel1", "13.3.rel1", "13.2.rel1" }
+local KNOWN_VERSIONS = { "15.2.rel1", "14.3.rel1", "14.2.rel1", "13.3.rel1", "13.2.rel1" }
 
 -- Arm names its host/arch tokens differently from the Zephyr SDK convention, so
 -- map explicitly (keyed by Utils.os()/Utils.arch()).

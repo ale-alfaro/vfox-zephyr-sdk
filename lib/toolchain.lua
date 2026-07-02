@@ -8,6 +8,10 @@ local MIN_VERSION = "0.17.0"
 local MAX_VERSION = "1.1.0"
 -- The SDK only ships an LLVM/Clang toolchain from 1.0.0 onwards.
 local LLVM_MIN_VERSION = "1.0.0"
+-- Installed when the bare `zephyr-sdk` (toolchain) tool is used without any
+-- toolchain option, so a plain install yields a usable GNU cross-compiler
+-- instead of every toolchain (or none).
+local DEFAULT_TOOLCHAIN = "arm-zephyr-eabi"
 local STORE_KEY = "zephyr_minimal_toolchains"
 
 --- Fetch available SDK release versions from GitHub.
@@ -90,6 +94,11 @@ local function parse_toolchain_options(opts)
         tc_opts.toolchains = toolchains
     elseif type(raw) ~= "table" then
         tc_opts.toolchains = {}
+    end
+    -- A bare `zephyr-sdk` install (no toolchains selected) defaults to a single
+    -- GNU cross-compiler rather than installing everything.
+    if #tc_opts.toolchains == 0 then
+        tc_opts.toolchains = { DEFAULT_TOOLCHAIN }
     end
     return tc_opts
 end
