@@ -6,6 +6,8 @@ local M = {}
 local GITHUB_REPO = "zephyrproject-rtos/sdk-ng"
 local MIN_VERSION = "0.17.0"
 local MAX_VERSION = "1.1.0"
+-- The SDK only ships an LLVM/Clang toolchain from 1.0.0 onwards.
+local LLVM_MIN_VERSION = "1.0.0"
 local STORE_KEY = "zephyr_minimal_toolchains"
 
 --- Fetch available SDK release versions from GitHub.
@@ -49,10 +51,19 @@ local github_fetch_releases = function() ---@as AssetBundleFetchFn
     end
     return releases
 end
---- Map runtime OS name to Zephyr SDK naming convention
+--- List installable Zephyr SDK versions for the requested variant.
+--- The `llvm` variant is only packaged from LLVM_MIN_VERSION onwards, so it
+--- filters the shared release list down to the versions that ship it.
+---@param opts? ToolOptions
 ---@return string[] versions
-M.list_versions = function()
-    return Utils.store.fetch_versions(STORE_KEY, github_fetch_releases)
+M.list_versions = function(opts)
+    local versions = Utils.store.fetch_versions(STORE_KEY, github_fetch_releases)
+    if opts and opts.family == "llvm" then
+        versions = Utils.list_filter(function(version)
+            return Utils.semver.compare(version, LLVM_MIN_VERSION) >= 0
+        end, versions)
+    end
+    return versions
 end
 
 ---
@@ -134,6 +145,9 @@ function M.install(ctx, opts)
     Utils.validate("install_path", install_path, "string")
     Utils.validate("download_path", download_path, "string")
     local toolchain_opts = parse_toolchain_options(opts)
+    if toolchain_opts.family == "llvm" and Utils.semver.compare(version, LLVM_MIN_VERSION) < 0 then
+        Utils.fatal("The llvm toolchain variant requires Zephyr SDK >= " .. LLVM_MIN_VERSION, { version = version })
+    end
     local asset = Utils.store.fetch_toolchain_asset(STORE_KEY, github_fetch_releases, version)
 
     if not asset then
@@ -167,17 +181,26 @@ function M.envs(ctx, opts) -- luacheck: no unused args
     Utils.validate("version", version, "string")
     Utils.validate("zephyr_sdk_install_dir", zephyr_sdk_install_dir, "string")
     local toolchain_opts = parse_toolchain_options(opts) ---@as ToolchainOptions
-    local toolchain_root = zephyr_sdk_install_dir
-    if Utils.semver.compare(version, "1.0.0") >= 0 then
-        toolchain_root = (toolchain_opts.family == "zephyr") and Utils.fs.join_path(zephyr_sdk_install_dir, "gnu")
-            or Utils.fs.join_path(zephyr_sdk_install_dir, "llvm")
-    end
+    -- Both the `zephyr` (GNU) and `llvm` variants live under the SDK root, so
+    -- Zephyr's own toolchain search only needs ZEPHYR_SDK_INSTALL_DIR plus the
+    -- variant name. The PATH entries below are a convenience for invoking the
+    -- compilers directly; the {VARIANT}_TOOLCHAIN_PATH var is not required here
+    -- (it is only needed for out-of-tree variants such as gnuarmemb).
     local env_vars = {
         { key = "ZEPHYR_TOOLCHAIN_VARIANT", value = toolchain_opts.family },
         { key = "ZEPHYR_SDK_INSTALL_DIR", value = zephyr_sdk_install_dir },
     }
-    if toolchain_opts.toolchains then
-        for _, tc in ipairs(toolchain_opts.toolchains) do
+    local is_new_layout = Utils.semver.compare(version, "1.0.0") >= 0
+    if toolchain_opts.family == "llvm" then
+        -- SDK-packaged LLVM is a single toolchain under `<sdk>/llvm/bin`.
+        local llvm_bin = Utils.fs.join_path(zephyr_sdk_install_dir, "llvm", "bin")
+        env_vars[#env_vars + 1] = { key = "PATH", value = llvm_bin }
+    else
+        -- GNU cross-compilers moved under `<sdk>/gnu/<target>` in SDK 1.0.0;
+        -- earlier releases keep them directly under the SDK root.
+        local toolchain_root = is_new_layout and Utils.fs.join_path(zephyr_sdk_install_dir, "gnu")
+            or zephyr_sdk_install_dir
+        for _, tc in ipairs(toolchain_opts.toolchains or {}) do
             env_vars[#env_vars + 1] = { key = "PATH", value = Utils.fs.join_path(toolchain_root, tc, "bin") }
         end
     end

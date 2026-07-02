@@ -13,6 +13,39 @@ A [mise](https://mise.jdx.dev/) backend plugin for the [Zephyr SDK](https://gith
 3. **LLVM Toolchain** (`toolchain_<platform>_llvm.tar.xz`) - LLVM toolchain (Zephyr-SDK 1.0.0+ only!)
 4. **Hosttools** (`hosttools_<platform>.tar.xz`) - host tools such as opencod and qemu (Linux only, self-extracting installer)
 
+### Multiple toolchain variants
+
+Zephyr picks a compiler through `ZEPHYR_TOOLCHAIN_VARIANT`. This plugin exposes
+each supported variant as its own mise tool, so the **tool name is the variant**
+— no options to remember, nothing to get confused about:
+
+| Tool name(s)                              | `ZEPHYR_TOOLCHAIN_VARIANT` | Source                                   | Notes                          |
+| ----------------------------------------- | -------------------------- | ---------------------------------------- | ------------------------------ |
+| `arm`, `aarch64`, `riscv64`, `x86_64`, …  | `zephyr`                   | Zephyr SDK GNU cross-compilers           | one tool per target arch       |
+| `llvm`                                    | `llvm`                     | Zephyr SDK LLVM/Clang                    | Zephyr SDK **>= 1.0.0** only    |
+| `gnuarmemb`                               | `gnuarmemb`                | Arm GNU Toolchain (`arm-none-eabi`)      | separate tool, Arm versioning  |
+
+Switching is just switching tools:
+
+```bash
+mise use zephyr-sdk:arm@0.17.0        # ZEPHYR_TOOLCHAIN_VARIANT=zephyr
+mise use zephyr-sdk:llvm@1.0.0        # ZEPHYR_TOOLCHAIN_VARIANT=llvm
+mise use zephyr-sdk:gnuarmemb@14.2.rel1  # ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
+```
+
+**Only the selected target is installed.** Each `zephyr`/`llvm` tool runs the
+SDK `setup.sh` with a single `-t <target>` — it never installs every toolchain.
+Host tools and the CMake package registration are **opt-in**, off by default:
+
+```bash
+# Add host tools (openocd, qemu, …) and/or register the CMake package
+mise install zephyr-sdk:arm@0.17.0 --hosttools --cmake_pkg
+```
+
+`gnuarmemb` is managed independently of the Zephyr SDK: it has its own download
+source (Arm), its own version scheme (e.g. `14.2.rel1`), and its own install
+path. Any Arm-published version works, not just the ones shown by `ls-remote`.
+
 ### West via uv script
 
 **Creates a shim of west using uv scripts with inline metadata for dependency management and keeping them self-contained**
@@ -146,7 +179,9 @@ if __name__ == "__main__":
 
 The script only concerns itself with running the uvx command (short for `uv tool run`) with the rest of the dependencies that the Zephyr repo has and passes on all the arguments to west as normal.
 
-Sets `ZEPHYR_SDK_INSTALL_DIR`, `ZEPHYR_TOOLCHAIN_VARIANT=zephyr`, and adds toolchain + hosttools bins to `PATH`.
+The west shim itself only prepends its own directory (and uv) to `PATH`; the
+toolchain env vars come from whichever toolchain variant tool you have active
+(see [Multiple toolchain variants](#multiple-toolchain-variants) above).
 
 ## Usage
 
@@ -174,13 +209,25 @@ west build -p -b native_sim app
 
 ## Environment variables
 
-| Variable                   | Value                                                              |
-| -------------------------- | ------------------------------------------------------------------ |
-| `PATH` (toolchains)        | adds `<toolchain>/bin` (or `gnu/<toolchain>/bin` for SDK >= 1.0.0) |
-| `PATH` (minimal SDK)       | adds `setup.sh` installer                                          |
-| `PATH` (west shim)         | adds a copy of the `west_shim.py` as west                          |
-| `ZEPHYR_SDK_INSTALL_DIR`   | `<install>` (SDK root with cmake/ and sdk_version)                 |
-| `ZEPHYR_TOOLCHAIN_VARIANT` | `zephyr`                                                           |
+Which variables are set depends on the selected variant:
+
+| Variable                    | `zephyr` / `llvm` variant                                              | `gnuarmemb` variant                          |
+| --------------------------- | --------------------------------------------------------------------- | -------------------------------------------- |
+| `ZEPHYR_TOOLCHAIN_VARIANT`  | `zephyr` or `llvm`                                                     | `gnuarmemb`                                  |
+| `ZEPHYR_SDK_INSTALL_DIR`    | `<install>` (SDK root Zephyr searches under)                          | _not set_                                    |
+| `GNUARMEMB_TOOLCHAIN_PATH`  | _not set_                                                             | `<install>` (toolchain root, holds `bin/`)   |
+| `PATH` (toolchains)         | `<toolchain>/bin` (`gnu/<toolchain>/bin` for SDK >= 1.0.0; `llvm/bin` for llvm) | `<install>/bin`                    |
+
+The generic `{VARIANT}_TOOLCHAIN_PATH` pointer is only needed for out-of-tree
+variants like `gnuarmemb`; the `zephyr` and `llvm` toolchains ship inside the
+SDK and are located via `ZEPHYR_SDK_INSTALL_DIR`.
+
+Other tools also set:
+
+| Variable             | Value                                     |
+| -------------------- | ----------------------------------------- |
+| `PATH` (minimal SDK) | adds `setup.sh` installer                 |
+| `PATH` (west shim)   | adds a copy of the `west_shim.py` as west |
 
 ## Development
 

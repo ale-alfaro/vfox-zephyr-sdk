@@ -22,6 +22,7 @@
 ---| '"zephyr"'
 ---| '"ncs"'
 ---| '"llvm"'
+---| '"gnuarmemb"'
 ---
 ---@class ToolchainOptions
 ---@field toolchains? string[] Toolchain targets to install (e.g. {"arm-zephyr-eabi"})
