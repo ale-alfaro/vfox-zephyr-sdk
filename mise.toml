@@ -8,23 +8,23 @@ pkl = "latest"
 [tasks.pre-commit]
 run = "hk run pre-commit"
 
+# Parameterized smoke test: install one toolchain variant and verify its
+# compiler runs. Override TOOL/BIN/VERSION via `extends` to test another
+# variant (see smoke:llvm / smoke:gnuarmemb in mise.ci.toml). West is covered
+# separately by test:run.
 [task_templates."test:local"]
 allow_env = ["MISE_USE_VERSIONS_HOST"]
-vars = { ZEPHYR_SDK_VERSION = "0.17.0" }
+vars = { VERSION = "0.17.0", TOOL = "arm", BIN = "arm-zephyr-eabi-gcc" }
 run = '''
 # Link for development
 mise deactivate
 mise plugins ln vfox-zephyr-test . --force
-mise ls-remote vfox-zephyr-test:west
-mise ls-remote vfox-zephyr-test:arm
-mise install vfox-zephyr-test:arm@{{vars.ZEPHYR_SDK_VERSION}}
-mise install vfox-zephyr-test:west
-mise exec vfox-zephyr-test:arm@{{vars.ZEPHYR_SDK_VERSION}} -- arm-zephyr-eabi-gcc --version
-mise exec vfox-zephyr-test:west -- west --version
-mise rm vfox-zephyr-test:arm --yes
-mise rm vfox-zephyr-test:west --yes
+mise ls-remote vfox-zephyr-test:{{vars.TOOL}}
+mise install vfox-zephyr-test:{{vars.TOOL}}@{{vars.VERSION}}
+mise exec vfox-zephyr-test:{{vars.TOOL}}@{{vars.VERSION}} -- {{vars.BIN}} --version
+mise rm vfox-zephyr-test:{{vars.TOOL}} --yes
 '''
 
 [tasks."smoke:test"]
-description = "Test plugin locally"
+description = "Smoke test the arm (zephyr GNU) variant"
 extends = "test:local"

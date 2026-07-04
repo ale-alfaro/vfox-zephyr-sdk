@@ -12,12 +12,18 @@ lua-language-server = "latest"
 description = "Lint Lua sources"
 run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP:-/tmp}/luals-log"'
 
-[tasks."test:unit"]
-description = "Offline unit tests for toolchain-variant logic (llvm, gnuarmemb, defaults)"
-# Lua 5.1 matches the gopher-lua runtime the plugin runs under. The spec stubs
-# the mise globals, so it needs no network, no mise backend and no real install.
-tools = { lua = "5.1" }
-run = "lua tests/unit/variants_spec.lua"
+# Variant smoke tests: reuse the parameterized `test:local` template (mise.toml)
+# and just point it at a different toolchain variant. The real install/exec
+# check runs in GitHub Actions CI.
+[tasks."smoke:llvm"]
+description = "Smoke test the llvm variant (Zephyr SDK >= 1.0.0)"
+extends = "test:local"
+vars = { VERSION = "1.0.0", TOOL = "llvm", BIN = "clang" }
+
+[tasks."smoke:gnuarmemb"]
+description = "Smoke test the gnuarmemb variant (Arm GNU Toolchain)"
+extends = "test:local"
+vars = { VERSION = "15.2.rel1", TOOL = "gnuarmemb", BIN = "arm-none-eabi-gcc" }
 
 [tasks."test:setup_sandbox"]
 hide = true
@@ -42,10 +48,6 @@ mise plugins ln vfox-zephyr-test .  --force
 # install/exec (which needs the sandbox's declared uv) is covered by test:run.
 mise ls-remote "vfox-zephyr-test:arm"
 mise ls-remote "vfox-zephyr-test:west"
-# The variant tools must resolve too: llvm is gated to SDK >= 1.0.0 and
-# gnuarmemb has its own (Arm) version list.
-mise ls-remote "vfox-zephyr-test:llvm"
-mise ls-remote "vfox-zephyr-test:gnuarmemb"
 '''
 
 [tasks."test:cleanup"]

@@ -33,7 +33,9 @@ jobs:
           gcc-multilib g++-multilib device-tree-compiler
       - name: Lua typecheck and linting
         run: mise run lint
-      - name: Unit tests (toolchain-variant logic)
-        run: mise run test:unit
+      - name: Smoke test llvm variant
+        run: mise run smoke:llvm
+      - name: Smoke test gnuarmemb variant
+        run: mise run smoke:gnuarmemb
       - name: Run tests
         run: mise test:run --timeout 10m
