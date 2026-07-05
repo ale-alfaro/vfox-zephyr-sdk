@@ -46,7 +46,7 @@
 ---@field minimal_assets AssetMap
 ---
 ---@class ZephyrTool
----@field list_versions fun(): string[]
+---@field list_versions fun(opts?: ToolOptions): string[]
 ---@field install fun(ctx: BackendInstallCtx): nil
 ---@field envs fun(ctx: BackendExecEnvCtx): table<string,string>
 
@@ -60,7 +60,7 @@
 ---@alias ToolOptions WestToolOptions|ToolchainOptions
 
 ---@class ZephyrTool
----@field list_versions? fun(): string[]
+---@field list_versions? fun(opts?: ToolOptions): string[]
 ---@field install fun(ctx:BackendInstallCtx, override?:ToolOptions):BackendInstallResult
 ---@field envs fun(ctx:BackendExecEnvCtx, override?:ToolOptions):EnvKey[]
 
