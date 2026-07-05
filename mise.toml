@@ -16,6 +16,8 @@ run = "hk run pre-commit"
 allow_env = ["MISE_USE_VERSIONS_HOST"]
 vars = { VERSION = "0.17.0", TOOL = "arm", BIN = "arm-zephyr-eabi-gcc" }
 run = '''
+# Trust the repo config so nested `mise` calls work in CI (locally a no-op).
+mise trust
 # Link for development
 mise deactivate
 mise plugins ln vfox-zephyr-test . --force
