@@ -65,7 +65,8 @@ if [[ {{usage.toolchain}} =~ .*latest ]]; then
 else
   zephyr_version_compat="v3.7"
 fi
-test_manifest="tests/zephyr-${zephyr_version_compat?}-manifest.yml"
+test_manifest="${MISE_CONFIG_ROOT?}/tests/zephyr-${zephyr_version_compat?}-manifest.yml"
+[[ ! -f ${test_manifest?} ]] && echo "Manifest ${test_manifest} does not exist!" && exit 1
 test_sandbox="${MISE_CONFIG_ROOT?}/tests/zephyr-${zephyr_version_compat?}"
 app_dir=${test_sandbox?}/app
 [[ -d ${test_sandbox?} ]] && rm -rf ${test_sandbox?}
