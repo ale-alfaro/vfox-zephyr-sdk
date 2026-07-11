@@ -1,9 +1,6 @@
 [env]
 MISE_USE_VERSIONS_HOST = "0"
 
-[vars]
-test_sandbox = "tests/sandbox"
-test_manifest = "tests/zephyr-manifest.yml"
 
 [tools]
 lua-language-server = "latest"
@@ -12,61 +9,91 @@ lua-language-server = "latest"
 description = "Lint Lua sources"
 run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP:-/tmp}/luals-log"'
 
-[tasks."test:setup_sandbox"]
-hide = true
+# Parameterized smoke test: install one toolchain variant and verify its
+# compiler runs. Override TOOL/BIN/VERSION via `extends` to test another
+# variant (see smoke:llvm / smoke:gnuarmemb in mise.ci.toml). West is covered
+# separately by test:run.
+[task_templates."smoke_test:tool"]
+description = "Smoke test for tools"
+vars = { TOOL = "arm", BIN = "arm-zephyr-eabi-gcc" }
 run = '''
-[[ -d {{vars.test_sandbox}} ]] && rm -rf {{vars.test_sandbox}}
-mise_toml={{vars.test_sandbox}}/mise.local.toml
-app_dir={{vars.test_sandbox}}/app
-mkdir -p "$app_dir"
-mise trust {{vars.test_sandbox}}
-mise generate config "$mise_toml" -t tests/configs/.tool_versions
-cp tests/zephyr-manifest.yml "${app_dir}/west.yml"
-mise config set vars._.file --file "$mise_toml" {{config_root}}/tests/configs/.vars
+# Link for development
+mise plugins ln vfox-zephyr-test . --force
+mise ls-remote vfox-zephyr-test:{{vars.TOOL}}
+mise install vfox-zephyr-test:{{vars.TOOL}}@latest
+mise exec vfox-zephyr-test:{{vars.TOOL}}@latest -- {{vars.BIN}} --version
+mise rm vfox-zephyr-test:{{vars.TOOL}} --yes
 '''
 
+# Variant smoke tests:
+[tasks."smoke_test:arm-zephyr-eabi"]
+extends = "smoke_test:tool"
 
+[tasks."smoke_test:llvm"]
+extends = "smoke_test:tool"
+vars = { TOOL = "llvm", BIN = "clang" }
+
+[tasks."smoke_test:gnuarmemb"]
+extends = "smoke_test:tool"
+vars = { TOOL = "gnuarmemb", BIN = "arm-none-eabi-gcc" }
+
+# Parameterized e2e test:
 [tasks."test:setup_plugin"]
 hide = true
-depends = ['test:setup_sandbox']
+usage = '''
+arg "<tool>"
+'''
 run = '''
+mise use uv
+mise use cmake
 mise plugins ln vfox-zephyr-test .  --force
-# Only verify the plugin links and resolves versions here; actual tool
-# install/exec (which needs the sandbox's declared uv) is covered by test:run.
-mise ls-remote "vfox-zephyr-test:arm"
-mise ls-remote "vfox-zephyr-test:west"
+mise install vfox-zephyr-test:{{usage.tool}}
+mise install vfox-zephyr-test:west
+'''
+[tasks."test_e2e:toolchain:version"]
+usage = '''
+arg "<toolchain>" {
+  help "Toolchain"
+  choices "llvm@latest" "arm@latest" "arm@0.17.0" "gnuarmemb@latest"
+}
+'''
+depends = [{ task = 'test:setup_plugin', args = ['{{usage.toolchain}}'] }]
+depends_post = ["test:cleanup"]
+run = '''
+if [[ {{usage.toolchain}} =~ .*latest ]]; then
+  zephyr_version_compat="v4.4"
+else
+  zephyr_version_compat="v3.7"
+fi
+test_manifest="tests/zephyr-${zephyr_version_compat?}-manifest.yml"
+test_sandbox="${MISE_CONFIG_ROOT?}/tests/zephyr-${zephyr_version_compat?}"
+app_dir=${test_sandbox?}/app
+[[ -d ${test_sandbox?} ]] && rm -rf ${test_sandbox?}
+mkdir -p "$app_dir"
+cp "${test_manifest?}" "${app_dir}/west.yml"
+pushd "${test_sandbox?}" || true
+mise x vfox-zephyr-test:west -- west --version
+mise x vfox-zephyr-test:west -- west init -l app
+mise x vfox-zephyr-test:west -- west update -o=--depth=1 --narrow
+west config --local zephyr.base-prefer configfile
+west config --local zephyr.base zephyr
+mise x vfox-zephyr-test:west vfox-zephyr-test:{{usage.toolchain}} -- west build -p -b reel_board zephyr/samples/hello_world
+popd || true
+rm -rf "${test_sandbox?}"
 '''
 
 [tasks."test:cleanup"]
 hide = true
 run = '''
 #!/usr/bin/env zsh
-rm -rf {{vars.test_sandbox}}
+mise unuse cmake
+mise unuse uv
 mise prune --tools --yes
 mise plugins rm vfox-zephyr-test --silent
 mise cache c
+mise reshim
 # west's install moves bin/west out of the linked plugin dir (os.rename), so
 # restore the committed shim from git instead of a manual backup/restore.
 git checkout -- bin/west bin/west.lock 2>/dev/null || true
 :
 '''
-
-
-[tasks."test:run"]
-dir = "{{vars.test_sandbox}}"
-description = "Test for backend plugin"
-depends = ['test:setup_plugin']
-run = '''
-#!/usr/bin/env zsh
-[[ ! -f mise.local.toml ]] && echo "NO mise.local.toml found" && exit 1
-mise use uv
-mise use cmake
-mise ls
-mise x vfox-zephyr-test:west -- west init -l app
-mise x vfox-zephyr-test:west -- west update -o=--depth=1 --narrow
-[[ -d zephyr ]] || { echo "Zephyr base missing"; exit 1 }
-mise set ZEPHYR_BASE="$PWD/zephyr"
-mise x vfox-zephyr-test:west  vfox-zephyr-test:arm@0.17.0 -- west build -p -b reel_board zephyr/samples/hello_world
-[[ -d build ]] || { echo "build dir missing"; exit 1 }
-'''
-depends_post = ["test:cleanup"]

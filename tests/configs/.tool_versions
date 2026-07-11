@@ -1,4 +1,0 @@
-uv latest
-cmake latest
-vfox-zephyr-test:arm 0.17.0
-vfox-zephyr-test:west 1.5.0
