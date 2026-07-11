@@ -9,7 +9,7 @@ function PLUGIN:BackendListVersions(ctx)
         Utils.err("Failed to find tool or list_versions function", { ctx = ctx })
         return {}
     end
-    local releases = ZephyrSdk[ctx.tool].list_versions()
+    local releases = ZephyrSdk[ctx.tool].list_versions(ctx)
     local versions = require("semver").sort(releases)
     return { versions = versions }
 end

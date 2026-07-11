@@ -22,6 +22,7 @@
 ---| '"zephyr"'
 ---| '"ncs"'
 ---| '"llvm"'
+---| '"gnuarmemb"'
 ---
 ---@class ToolchainOptions
 ---@field toolchains? string[] Toolchain targets to install (e.g. {"arm-zephyr-eabi"})
@@ -44,10 +45,16 @@
 ---@field tag_name string Release tag (e.g. "v0.17.0")
 ---@field minimal_assets AssetMap
 ---
+---@class ZephyrSdkToolOptions
+---@field target string Toolchain passed to `setup.sh -t` (e.g. "arm-zephyr-eabi", "llvm")
+---@field family ZephyrSdkToolchainFamily Value exported as `ZEPHYR_TOOLCHAIN_VARIANT`
+
 ---@class ZephyrTool
----@field list_versions fun(): string[]
+---@field list_versions fun(opts?: ToolOptions): string[]
 ---@field install fun(ctx: BackendInstallCtx): nil
 ---@field envs fun(ctx: BackendExecEnvCtx): table<string,string>
+---@field name string Name
+---@field options ZephyrSdkToolOptions Options
 
 ---@class ReleaseStore
 ---@field releases? table<Version, table>
@@ -57,11 +64,6 @@
 ---@field additional_requirements? table<string, Version>
 ---
 ---@alias ToolOptions WestToolOptions|ToolchainOptions
-
----@class ZephyrTool
----@field list_versions? fun(): string[]
----@field install fun(ctx:BackendInstallCtx, override?:ToolOptions):BackendInstallResult
----@field envs fun(ctx:BackendExecEnvCtx, override?:ToolOptions):EnvKey[]
 
 ------------------------------------------------------------------------
 -- Globals
@@ -174,7 +176,7 @@ ARCH_TYPE = ""
 
 ---@class BackendListVersionsCtx
 ---@field tool string Tool name
----@field options {toolchains:string[],additional_requirements:string|string[]} Plugin options from mise.toml
+---@field options table
 
 ---@class BackendListVersionsResult
 ---@field versions string[] List of available versions
@@ -184,7 +186,7 @@ ARCH_TYPE = ""
 ---@field version string Version to install
 ---@field install_path string Path where the tool should be installed
 ---@field download_path string Path where the tool artifact should be downloaded
----@field options {toolchains:string[],additional_requirements:string|string[]} Plugin options from mise.toml
+---@field options table
 
 ---@class BackendInstallResult
 
@@ -192,7 +194,7 @@ ARCH_TYPE = ""
 ---@field tool string Tool name
 ---@field version string Installed version
 ---@field install_path string Installation path
----@field options {toolchains:string[],additional_requirements:string|string[]} Plugin options from mise.toml
+---@field options table
 
 ---@class BackendExecEnvResult
 ---@field env_vars EnvKey[] Environment variables to set
