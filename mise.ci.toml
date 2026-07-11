@@ -13,29 +13,28 @@ run = 'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP
 # compiler runs. Override TOOL/BIN/VERSION via `extends` to test another
 # variant (see smoke:llvm / smoke:gnuarmemb in mise.ci.toml). West is covered
 # separately by test:run.
-[task_templates."smoke_test:tool"]
+[tasks."smoke_test:tool"]
 description = "Smoke test for tools"
-vars = { TOOL = "arm", BIN = "arm-zephyr-eabi-gcc" }
+usage = '''
+arg "<tool>" {
+  help "Toolchain"
+  choices "llvm" "arm" "west" "gnuarmemb"
+}
+arg "[bin]" {
+  help "Binary executable that tool provides"
+}
+'''
 run = '''
-# Link for development
+#!/usr/bin/env zsh
 mise plugins ln vfox-zephyr-test . --force
-mise ls-remote vfox-zephyr-test:{{vars.TOOL}}
-mise install vfox-zephyr-test:{{vars.TOOL}}@latest
-mise exec vfox-zephyr-test:{{vars.TOOL}}@latest -- {{vars.BIN}} --version
-mise rm vfox-zephyr-test:{{vars.TOOL}} --yes
+mise ls-remote vfox-zephyr-test:{{usage.tool}}
+mise install vfox-zephyr-test:{{usage.tool}}@latest
+{% if usage.bin %}
+  mise exec vfox-zephyr-test:{{usage.tool}}@latest -- {{usage.bin}} --version
+{% endif %}
+mise rm vfox-zephyr-test:{{usage.tool}} --yes
 '''
 
-# Variant smoke tests:
-[tasks."smoke_test:arm-zephyr-eabi"]
-extends = "smoke_test:tool"
-
-[tasks."smoke_test:llvm"]
-extends = "smoke_test:tool"
-vars = { TOOL = "llvm", BIN = "clang" }
-
-[tasks."smoke_test:gnuarmemb"]
-extends = "smoke_test:tool"
-vars = { TOOL = "gnuarmemb", BIN = "arm-none-eabi-gcc" }
 
 # Parameterized e2e test:
 [tasks."test:setup_plugin"]
@@ -44,6 +43,7 @@ usage = '''
 arg "<tool>"
 '''
 run = '''
+#!/usr/bin/env zsh
 mise use uv
 mise use cmake
 mise plugins ln vfox-zephyr-test .  --force
@@ -60,6 +60,7 @@ arg "<toolchain>" {
 depends = [{ task = 'test:setup_plugin', args = ['{{usage.toolchain}}'] }]
 depends_post = ["test:cleanup"]
 run = '''
+#!/usr/bin/env zsh
 if [[ {{usage.toolchain}} =~ .*latest ]]; then
   zephyr_version_compat="v4.4"
 else
