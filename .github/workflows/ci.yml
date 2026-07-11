@@ -10,8 +10,9 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+        zephyr-sdk-version: [0.17.0, latest]
+        os: [ubuntu-latest,macos-latest]
+    runs-on: ${{matrix.os}}
     env:
       MISE_ENV: ci
     steps:
@@ -33,5 +34,13 @@ jobs:
           gcc-multilib g++-multilib device-tree-compiler
       - name: Lua typecheck and linting
         run: mise run lint
-      - name: Run tests
-        run: mise test:run --timeout 10m
+      - name: Smoke test llvm variant
+        run: mise run test_e2e:toolchain:version arm@${{matrix.zephyr-sdk-version}} --timeout 10m
+      - name: Smoke test llvm variant
+        if: matrix.zephyr-sdk-version == 'latest'
+        run:
+          mise run test_e2e:toolchain:version llvm@latest --timeout 10m
+      - name: Smoke test gnuarmemb variant
+        if: matrix.zephyr-sdk-version == 'latest'
+        run:
+          mise run test_e2e:toolchain:version gnuarmemb@latest --timeout 10m
