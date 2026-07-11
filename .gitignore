@@ -26,3 +26,4 @@ zephyr-sdk-*
 *-fake-workspace/
 /tests/sandbox/
 /backup
+*/sandbox/*
