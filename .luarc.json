@@ -3,6 +3,11 @@
   "runtime": {
     "version": "Lua 5.1"
   },
+  "workspace.ignoreDir": [
+    ".vscode",
+    "tests",
+    "scripts"
+  ],
   "diagnostics": {
     "disable": [
       "duplicate-set-field"
