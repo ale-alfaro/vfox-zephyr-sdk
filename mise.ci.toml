@@ -88,8 +88,7 @@ rm -rf "${test_sandbox?}"
 hide = true
 run = '''
 #!/usr/bin/env zsh
-mise unuse cmake
-mise unuse uv
+mise unuse -y uv cmake
 mise prune --tools --yes
 mise plugins rm vfox-zephyr-test --silent
 mise cache c
