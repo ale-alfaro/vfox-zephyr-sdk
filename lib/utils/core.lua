@@ -464,6 +464,33 @@ function Utils.validate(name, value, validator, optional, message)
     end
 end
 
+---@alias ContextType
+---| 'list-versions'
+---| 'install'
+---| 'exec'
+
+--- Returns true if object `f` can be called as a function.
+---@param ctx table
+---@param type ContextType
+function Utils.validate_ctx(ctx, type)
+    Utils.validate("ctx", ctx, "table")
+    local opts = ctx.options or {} ---@as ZephyrSdkToolOptions
+    Utils.validate("opts", opts, "table", true)
+    if type == "list-versions" then
+        return
+    elseif type == "install" then
+        local version, install_path, download_path = ctx.version, ctx.install_path, ctx.download_path
+        Utils.validate("version", version, "string")
+        Utils.validate("install_path", install_path, "string")
+        Utils.validate("download_path", download_path, "string")
+    elseif type == "exec" then
+        local version, install_dir = ctx.version, ctx.install_path
+        Utils.validate("version", version, "string")
+        Utils.validate("install_dir", install_dir, "string")
+    else
+        error("Invalid context type " .. type)
+    end
+end
 --- Returns true if object `f` can be called as a function.
 ---
 ---@param f? any Any object

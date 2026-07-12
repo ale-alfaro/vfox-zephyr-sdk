@@ -56,53 +56,14 @@ local github_fetch_releases = function() ---@as AssetBundleFetchFn
     return releases
 end
 
---- Install a version of the Zephyr SDK toolchain.
---- 1. Downloads the minimal SDK archive (contains setup.sh + cmake files)
---- 2. Extracts it flat into install_path (--strip-components=1)
---- 3. Runs setup.sh to download the arm-zephyr-eabi cross-compiler, host tools,
----    and register the CMake package
----@param sdk_root string Path containing setup.sh (the flattened install dir)
----@param opts ZephyrSdkToolOptions
----@return number
-local function run_setup(sdk_root, opts)
-    Utils.validate("sdk_root", sdk_root, "string")
-    Utils.validate("opts", opts, "table")
-    local setup_sh = Utils.fs.join_path(sdk_root, "setup.sh")
-    if not Utils.fs.path_exists(setup_sh, { type = "file" }) then
-        Utils.fatal("setup.sh not found after extraction", { sdk_root = sdk_root })
-    end
-    local cmd = { setup_sh } ---@as string[]
-    if opts.family == "llvm" then
-        cmd[#cmd + 1] = "-l"
-        -- The SDK's ld.lld is dynamically linked against libxml2.so.2, which
-        -- ships in the host-tools sysroot, not the LLVM archive. Install host
-        -- tools (`-h`) so the shared lib exists; envs() adds it to
-        -- LD_LIBRARY_PATH. setup.sh extracts them into <install>/hosttools via
-        -- `-d .`, so this is self-contained; without `-c` nothing is registered
-        -- globally. GNU targets don't need this (their binutils ld doesn't link
-        -- libxml2), so `-h` is scoped to the llvm variant.
-        -- cmd[#cmd + 1] = "-h"
-    else
-        local target = opts.target or DEFAULT_TARGET
-        cmd[#cmd + 1] = "-t "
-        cmd[#cmd + 1] = target
-    end
-
-    Utils.dbg("Running Zephyr SDK setup", { cmd = cmd })
-    Utils.sh.chmod("+x", setup_sh)
-    local out = Utils.sh.exec(cmd, { fail = true })
-    return (out ~= nil) and 0 or -1
-end
-
 --- List installable Zephyr SDK versions for the requested variant.
 --- The `llvm` variant is only packaged from LLVM_MIN_VERSION onwards, so it
 --- filters the shared release list down to the versions that ship it.
 ---@param ctx BackendListVersionsCtx
 ---@return string[] versions
 M.list_versions = function(ctx)
-    Utils.validate("ctx", ctx, "table")
+    Utils.validate_ctx(ctx, "list-versions")
     local opts = ctx.options or {} ---@as ZephyrSdkToolOptions
-    Utils.validate("opts", opts, "table")
     local versions = Utils.store.fetch_versions(STORE_KEY, github_fetch_releases)
     if opts and opts.target == "llvm" then
         versions = Utils.list_filter(function(version)
@@ -111,18 +72,15 @@ M.list_versions = function(ctx)
     end
     return versions
 end
---- Installs a specific version of nrfutil (launcher + pinned core module).
---- Layout: install_path/bin/nrfutil, install_path/home/, install_path/download/
+--- Install a version of the Zephyr SDK toolchain.
+--- 1. Downloads the minimal SDK archive (contains setup.sh + cmake files)
+--- 2. Extracts it flat into install_path (--strip-components=1)
+--- 3. Runs setup.sh to download the family and target-specific toolchain
 ---@param ctx BackendInstallCtx The mise-provided install path
 function M.install(ctx)
-    Utils.validate("ctx", ctx, "table")
+    Utils.validate_ctx(ctx, "install")
     local opts = ctx.options or {} ---@as ZephyrSdkToolOptions
-    Utils.validate("opts", opts, "table", true)
-
     local version, install_path, download_path = ctx.version, ctx.install_path, ctx.download_path
-    Utils.validate("version", version, "string")
-    Utils.validate("install_path", install_path, "string")
-    Utils.validate("download_path", download_path, "string")
     if opts.family == "llvm" and Utils.semver.compare(version, LLVM_MIN_VERSION) < 0 then
         Utils.fatal("The llvm toolchain variant requires Zephyr SDK >= " .. LLVM_MIN_VERSION, { version = version })
     end
@@ -140,7 +98,17 @@ function M.install(ctx)
         download_path,
         { name = "zephyr-sdk-" .. version, strip_components = 1 }
     )
-    if run_setup(install_path, opts) ~= 0 then
+    local setup_sh = Utils.fs.join_path(install_path, "setup.sh")
+    if not Utils.fs.path_exists(setup_sh, { type = "file" }) then
+        Utils.fatal("setup.sh not found after extraction", { sdk_root = setup_sh })
+    end
+    Utils.dbg("Running Zephyr SDK setup script", { setup_sh = setup_sh })
+    Utils.sh.chmod("+x", setup_sh)
+    local target = opts.target or DEFAULT_TARGET
+    local cmd = string.format("%q %s", setup_sh, (opts.family == "llvm" and " -l" or string.format(" -t %s", target)))
+
+    local out = Utils.sh.exec(Utils.strings.split(cmd, " "), { fail = true })
+    if out ~= nil then
         Utils.err("Running setup cmd failed with error ")
     end
 end
@@ -148,12 +116,9 @@ end
 ---@param ctx BackendExecEnvCtx
 ---@return EnvKey[] env_vars Array of {key, value} tables
 function M.envs(ctx) -- luacheck: no unused args
-    Utils.validate("ctx", ctx, "table")
+    Utils.validate_ctx(ctx, "exec")
     local opts = ctx.options or {} ---@as ZephyrSdkToolOptions
-    Utils.validate("opts", opts, "table")
-    local version, zephyr_sdk_install_dir = ctx.version, ctx.install_path
-    Utils.validate("version", version, "string")
-    Utils.validate("zephyr_sdk_install_dir", zephyr_sdk_install_dir, "string")
+    local version, install_dir = ctx.version, ctx.install_path
     -- Both GNU and LLVM ship inside the SDK root, so Zephyr's toolchain search
     -- only needs ZEPHYR_SDK_INSTALL_DIR plus the variant name. The SDK's LLVM is
     -- NOT a standalone `llvm` toolchain variant (that one expects an out-of-tree
@@ -171,13 +136,12 @@ function M.envs(ctx) -- luacheck: no unused args
     end
     local env_vars = {
         { key = "ZEPHYR_TOOLCHAIN_VARIANT", value = variant },
-        { key = "ZEPHYR_SDK_INSTALL_DIR", value = zephyr_sdk_install_dir },
+        { key = "ZEPHYR_SDK_INSTALL_DIR", value = install_dir },
     }
     if opts.family == "llvm" then
         Utils.inf("Toolchain family is llvm", { env = env_vars })
     else
-        local toolchain_root = is_new_layout and Utils.fs.join_path(zephyr_sdk_install_dir, "gnu")
-            or zephyr_sdk_install_dir
+        local toolchain_root = is_new_layout and Utils.fs.join_path(install_dir, "gnu") or install_dir
         env_vars[#env_vars + 1] = { key = "PATH", value = Utils.fs.join_path(toolchain_root, opts.target, "bin") }
         Utils.inf("Toolchain family is gnu", { env = env_vars })
     end
