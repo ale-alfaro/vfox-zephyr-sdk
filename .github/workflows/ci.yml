@@ -34,13 +34,13 @@ jobs:
           gcc-multilib g++-multilib device-tree-compiler
       - name: Lua typecheck and linting
         run: mise run lint
-      - name: Smoke test llvm variant
+      - name: Test Zephyr-SDK toolchain for ARM
         run: mise run --timeout 10m test_e2e:toolchain:version arm@${{matrix.zephyr-sdk-version}}
-      - name: Smoke test llvm variant
+      - name: Test LLVM toolchain variant
         if: matrix.zephyr-sdk-version == 'latest'
         run:
           mise run --timeout 10m test_e2e:toolchain:version llvm@latest
-      - name: Smoke test gnuarmemb variant
+      - name: Test gnuarmemb toolchain variant
         if: matrix.zephyr-sdk-version == 'latest'
         run:
           mise run --timeout 10m test_e2e:toolchain:version gnuarmemb@latest
