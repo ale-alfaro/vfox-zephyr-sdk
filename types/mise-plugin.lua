@@ -1,74 +1,3 @@
---- LuaCATS type definitions for mise backend plugins
---- These annotations provide IDE support via lua-language-server.
---- See https://luals.github.io/wiki/annotations/
----@meta
-------------------------------------------------------------------------
--- Zephyr SDK specific types
-------------------------------------------------------------------------
-
----@alias ZephyrSdkOsType
----| '"linux"'
----| '"darwin"'
----| '"windows"'
----
----@alias ZephyrSdkArchType
----| '"amd64"'
----| '"arm64"'
----
----
----@alias Version string
----
----@alias ZephyrSdkToolchainFamily
----| '"zephyr"'
----| '"ncs"'
----| '"llvm"'
----| '"gnuarmemb"'
----
----@class ToolchainOptions
----@field toolchains? string[] Toolchain targets to install (e.g. {"arm-zephyr-eabi"})
----@field hosttools? boolean Install host tools
----@field cmake_pkg? boolean Register Zephyr SDK CMake package
----@field family? ZephyrSdkToolchainFamily
----
----@class ToolchainBundle
----@field asset_name string
----@field version string
----@field checksum string
----@field download_url string
-
----
----@class ZephyrSdkAsset : ToolchainBundle
----@field github_asset_url string
-
----@alias AssetMap table<ZephyrSdkOsType, table<ZephyrSdkArchType, ZephyrSdkAsset>> Release assets
----@class ZephyrSdkRelease
----@field tag_name string Release tag (e.g. "v0.17.0")
----@field minimal_assets AssetMap
----
----@class ZephyrSdkToolOptions
----@field target string Toolchain passed to `setup.sh -t` (e.g. "arm-zephyr-eabi", "llvm")
----@field family ZephyrSdkToolchainFamily Value exported as `ZEPHYR_TOOLCHAIN_VARIANT`
-
----@class ZephyrTool
----@field list_versions fun(opts?: ToolOptions): string[]
----@field install fun(ctx: BackendInstallCtx): nil
----@field envs fun(ctx: BackendExecEnvCtx): table<string,string>
----@field name string Name
----@field options ZephyrSdkToolOptions Options
-
----@class ReleaseStore
----@field releases? table<Version, table>
----@field timestamp? number
----
----@class WestToolOptions
----@field additional_requirements? table<string, Version>
----
----@alias ToolOptions WestToolOptions|ToolchainOptions
-
-------------------------------------------------------------------------
--- Globals
-------------------------------------------------------------------------
-
 --- LuaCATS type definitions for mise vfox plugins
 --- These annotations provide IDE support via lua-language-server.
 --- See https://luals.github.io/wiki/annotations/
@@ -97,86 +26,47 @@ ARCH_TYPE = ""
 -- PLUGIN table & hook method signatures
 ------------------------------------------------------------------------
 
----@class AvailableVersion
----@field version string Version string
----@field note? string Optional note about the version
----@field rolling? boolean If true, this is a rolling release (e.g. "nightly")
----@field checksum? string Checksum for detecting changes in rolling releases
-
----@class AvailableCtx
----@field args string[]
----@field version? string
-
----@class PreInstallResult
----@field version string Version string
----@field url? string Download URL
----@field note? string Optional note
----@field sha256? string SHA-256 checksum
----@field md5? string MD5 checksum
----@field sha1? string SHA-1 checksum
----@field sha512? string SHA-512 checksum
----@field attestation? PreInstallAttestation Optional attestation parameters
-
----@class PreInstallAttestation
----@field github_owner? string GitHub repository owner
----@field github_repo? string GitHub repository name
----@field github_signer_workflow? string GitHub Actions signer workflow
----@field cosign_sig_or_bundle_path? string Path to cosign signature or bundle
----@field cosign_public_key_path? string Path to cosign public key
----@field slsa_provenance_path? string Path to SLSA provenance
----@field slsa_min_level? integer Minimum SLSA level
 
 ---@class PreInstallCtx
----@field args string[]
+---@field args string[] Command-line arguments
 ---@field version string Requested version
 
 ---@class PostInstallCtx
 ---@field rootPath string Installation root path
 ---@field runtimeVersion string Runtime version
 ---@field sdkInfo table<string, SdkInfo> SDK info for installed versions
+---@field options table Tool options from mise.toml
 
 ---@class SdkInfo
----@field name string SDK name
 ---@field path string Installation path
 ---@field version string Installed version
+---@field note? string Optional note
 
 ---@class EnvKey
 ---@field key string Environment variable name
 ---@field value string Environment variable value
 
----@class EnvKeysCtx
----@field version string Installed version
----@field path string Installation path
----@field sdkInfo table<string, SdkInfo> SDK info for installed versions
----@field main SdkInfo Main SDK info
----@field options table Plugin options from mise.toml
+---@class BackendListToolsCtx
 
----@class ParseLegacyFileCtx
----@field args string[] Command-line arguments
----@field filename string Basename of the legacy file
----@field filepath string Full path to the legacy file
----@field getInstalledVersions fun(): string[] Returns list of installed versions
+---@class BackendTool
+---@field name string Name of tool
+---@field description string?  Description of tool
 
----@class ParseLegacyFileResult
----@field version? string Parsed version string
 
----@class MiseEnvCtx
----@field options table Plugin options from mise.toml
----@field config_root? string Configuration root path
+---@class BackendToolsResponse
+---@field tools BackendTool[] List of available tools
 
----@class MiseEnvResult
----@field env? EnvKey[] Environment variables to set
----@field cacheable? boolean Whether the result can be cached (default false)
----@field watch_files? string[] Files to watch for cache invalidation
----@field redact? boolean Whether env vars should be redacted in output (default false)
+---@class BackendListToolsCtx
 
----@class MisePathCtx
----@field options table Plugin options from mise.toml
----@field config_root? string Configuration root path
+---@class BackendListToolsResult : BackendToolsResponse
 
+---@class BackendSearchToolsCtx
+---@field query string Search string to look tools with
+
+---@class BackendSearchToolsResult : BackendToolsResponse
+---
 ---@class BackendListVersionsCtx
 ---@field tool string Tool name
----@field options table
 
 ---@class BackendListVersionsResult
 ---@field versions string[] List of available versions
@@ -186,7 +76,7 @@ ARCH_TYPE = ""
 ---@field version string Version to install
 ---@field install_path string Path where the tool should be installed
 ---@field download_path string Path where the tool artifact should be downloaded
----@field options table
+---@field options table<string, any> Tool options from the current config
 
 ---@class BackendInstallResult
 
@@ -194,84 +84,33 @@ ARCH_TYPE = ""
 ---@field tool string Tool name
 ---@field version string Installed version
 ---@field install_path string Installation path
----@field options table
+---@field options table<string, any> Tool options from the current config
 
 ---@class BackendExecEnvResult
 ---@field env_vars EnvKey[] Environment variables to set
 
+---@class BackendUninstallCtx
+---@field tool string Tool name
+---@field version string Installed version
+---@field install_path string Installation path, still present when the hook runs
+---@field download_path string Download path
+---@field options table<string, any> Tool options from the current config
+
 ---@class Plugin
---- Keys for `metadata.lua` (mise loads these via vfox `Metadata`). Hook methods are separate optional entries on the same table.
----@field name string Plugin metadata name
----@field version string Plugin metadata version
----@field description? string Plugin description
----@field author? string Plugin author
----@field license? string License name
----@field homepage? string Plugin homepage
----@field legacyFilenames? string[] Legacy version filenames
----@field depends? string[] Configured mise tools whose bin paths should be available during install hooks
----@field Available? fun(self: Plugin, ctx: AvailableCtx): AvailableVersion[]
----@field PreInstall? fun(self: Plugin, ctx: PreInstallCtx): PreInstallResult
----@field PostInstall? fun(self: Plugin, ctx: PostInstallCtx)
----@field EnvKeys? fun(self: Plugin, ctx: EnvKeysCtx): EnvKey[]
----@field ParseLegacyFile? fun(self: Plugin, ctx: ParseLegacyFileCtx): ParseLegacyFileResult
----@field MiseEnv? fun(self: Plugin, ctx: MiseEnvCtx): MiseEnvResult|EnvKey[]
----@field MisePath? fun(self: Plugin, ctx: MisePathCtx): string[]
+---@field name string Plugin name
+---@field BackendListTools? fun(self: Plugin, ctx: BackendListToolsCtx): BackendListToolsResult
+---@field BackendSearchTools? fun(self: Plugin, ctx: BackendSearchToolsCtx): BackendSearchToolsResult
+---@field BackendListVersions? fun(self: Plugin, ctx: BackendListVersionsCtx): BackendListVersionsResult
 ---@field BackendListVersions? fun(self: Plugin, ctx: BackendListVersionsCtx): BackendListVersionsResult
 ---@field BackendInstall? fun(self: Plugin, ctx: BackendInstallCtx): BackendInstallResult
 ---@field BackendExecEnv? fun(self: Plugin, ctx: BackendExecEnvCtx): BackendExecEnvResult
+---@field BackendUninstall? fun(self: Plugin, ctx: BackendUninstallCtx)
 PLUGIN = {}
-
---- @alias MergeTableBehaviorPolicy
----|'error'  raise an error
----|'keep'   use value from the leftmost map
----|'force'  use value from the rightmost map
-
----@comment If a function, it receives the current key, the previous value in the currently merged table (if present), the current value and should
----return the value for the given key in the merged table.
----@alias MergeTableBehavior MergeTableBehavior|fun(key:any, prev_value:any?, value:any):any
----      - "error": raise an error
----      - "keep":  use value from the leftmost map
----      - "force": use value from the rightmost map
----      - If a function, it receives the current key, the previous value
----        in the currently merged table (if present), the current value and should
----        return the value for the given key in the merged table.
----@alias FileExtensionType
----| 'archive'
----| 'executable'
 
 ------------------------------------------------------------------------
 -- Built-in modules (available via require)
 ------------------------------------------------------------------------
----@generic K,V
----@alias MappingFn fun(mapping:(fun(value:V):any),tabl:table<K,V>):table<K,any>
----
----@class Utils
---- Submodules (mise built-in, loaded lazily via __index)
----@field strings strings
----@field semver semver
----@field file file
----@field http Utils.http
----@field cmd cmd
----@field json json
---- Submodules (custom, loaded lazily via __index)
----@field fs Utils.fs
----@field sh Utils.sh
----@field net Utils.net
----@field store Utils.store
----@field inspect fun(root: any, options?: table): string
---- Core utility functions
----@field inf fun(...: any) Log at info level
----@field wrn fun(...: any) Log at warn level
----@field err fun(...: any) Log at error level
----@field dbg fun(...: any) Log at debug level
----@field islist fun(t: table): boolean
----@field ensure_list fun(t: any|any[]):any[]
----@field list_extend fun(dst: table, src:table,start:integer?,finish:integer?):table
----@field tbl_extend fun(behavior: MergeTableBehavior, ...: table<any,any>): table
----@field tbl_map MappingFn
----@field tbl_deep_extend fun(behavior: MergeTableBehavior, ...: table<any,any>): table
----@field platform_create_string fun(template:string, opts?:{exttype?:FileExtensionType,override?:table}):string
-Utils = {}
+
 -- http module --------------------------------------------------------
 
 ---@class HttpRequestOpts
@@ -283,124 +122,68 @@ Utils = {}
 ---@field headers table<string, string> Response headers
 ---@field body string Response body (only for get, not head)
 
----@class Utils.http
----@field get fun(opts: HttpRequestOpts): HttpResponse, string? Send a GET request
----@field head fun(opts: HttpRequestOpts): HttpResponse, string? Send a HEAD request (no body)
----@field download_file fun(opts: HttpRequestOpts, path: string): string? Download a file to disk
----@field try_get fun(opts: HttpRequestOpts): HttpResponse?, string? Non-raising GET request
----@field try_head fun(opts: HttpRequestOpts): HttpResponse?, string? Non-raising HEAD request
----@field try_download_file fun(opts: HttpRequestOpts, path: string): boolean?, string? Non-raising download
-Utils.http = {}
-
--- net module (extends http) ------------------------------------------
-
----@alias GhApiRequestType
----| 'GET'
----| 'DOWNLOAD'
----
----@class GhApiOpts
----@field reqType GhApiRequestType
----@field token? string
----
----@class GhListReleasesPayload
----@field name string
----@field tag_name string
----@field draft boolean
----@field prerelease boolean
----
----@class ReleasesConstraints
----@field version? {min:Version,max:Version}
----@field prereleases?  boolean
----
----@class GithubReleasesConstraints : ReleasesConstraints
----@field drafts? boolean
-
----@class Utils.net : Utils.http
----@field platform_create_string fun(template: string, exttype?: string): string Substitute platform placeholders
----@field github_asset_download fun(repo: string, asset_id: string, install_path: string, download_path: string): string Download GitHub release asset
----@field gh_api fun(repo: string, components:string, opts?:GhApiOpts): HttpRequestOpts
----@field archived_asset_download fun(url: string, install_dir: string, download_dir: string, asset_opts?: table): string? Download and extract archive
----@field executable_asset_download fun(url: string, install_dir: string, exe_name?: string): string? Download executable
----@field get_json_payload fun(request: string|HttpRequestOpts, filter_fn?: function, key_to_filter?: string): table? Fetch and parse JSON
----@field decompress_strip_components fun(archive_path:string, install_dir:string, root_dir:string):string?
-Utils.net = {}
+---@class http
+---@field get fun(opts: HttpRequestOpts): HttpResponse Send a GET request
+---@field head fun(opts: HttpRequestOpts): HttpResponse Send a HEAD request (no body)
+---@field download_file fun(opts: HttpRequestOpts, path: string) Download a file to disk
+local http = {}
 
 -- json module --------------------------------------------------------
 
 ---@class json
 ---@field encode fun(value: any): string Encode a value as JSON
 ---@field decode fun(str: string): any Decode a JSON string
-Utils.json = {}
+local json = {}
 
 -- file module --------------------------------------------------------
+
+---@class FileStat
+---@field size integer File size in bytes
+---@field is_file boolean Whether this is a regular file
+---@field is_dir boolean Whether this is a directory
+---@field is_symlink boolean Whether this is a symlink
+---@field modified integer|nil Last modification time (Unix seconds since epoch, nil if unavailable)
+---@field accessed integer|nil Last access time (Unix seconds since epoch, nil if unavailable)
+---@field created integer|nil Creation time (Unix seconds since epoch, nil if unavailable)
+---@field mode string|nil Octal permission mode string (Unix only, e.g. "755", nil on Windows)
 
 ---@class file
 ---@field read fun(path: string): string Read file contents
 ---@field exists fun(path: string): boolean Check if a file exists
 ---@field symlink fun(src: string, dst: string) Create a symbolic link
 ---@field join_path fun(...: string): string Join path components
----
----
-
----@class Utils.fs : file
----@field parents fun(start: string): fun(): string? Walk up directory tree
----@field isdir fun(path: string): boolean
----@field isabspath fun(path: string): boolean
----@field directory_exists fun(path: string): boolean Check if directory exists
----@field scandir fun(directory: string, opts?: ScanDirOpts): string[] List files in directory
----@field basename fun(file: string): string Get filename from path
----@field dirname fun(file: string): string Get parent directory from path
----@field path_exists fun(path: string, opts?: PathExistsOpts): boolean Check path existence
----@field normalize fun(path:string,opts?:Utils.fs.normalize.Opts):string  Normalized path
----@field abspath fun(path: string): string Convert to absolute path
----@field relpath fun(base: string,target:string): string Convert to relative path
-Utils.fs = {}
+---@field stat fun(path: string): FileStat|nil Get file metadata or nil if not found
+---@field list fun(path: string): string[] List immediate directory entries in sorted order
+---@field glob fun(pattern: string): string[] List paths matching a glob pattern in sorted order
+---@field move fun(src: string, dst: string) Move a file or directory
+local file = {}
 
 -- cmd module ---------------------------------------------------------
 
 ---@class CmdExecOpts
 ---@field cwd? string Working directory
 ---@field env? table<string, string> Environment variables
----@field timeout? number Timeout in seconds . Can be fraction
-
----@class utils.CmdExecOpts : CmdExecOpts
----@field fail? boolean If true a failure in the command exec will error out
----@field silent? boolean If true returns no output
+---@field timeout? integer Timeout in milliseconds
 
 ---@class cmd
 ---@field exec fun(command: string, opts?: CmdExecOpts): string Execute a shell command
-
----@class Utils.sh : cmd
----@field exec fun(cmd: string[], opts?: utils.CmdExecOpts):string?
----@field execf fun(opts?: utils.CmdExecOpts,fmt: string, ...):string?
----@field whichdir fun(tool: string): string? Get bin dir for a mise tool
----@field which fun(exe: string): string? Check if command exists in PATH
----@field realpath fun(filepath: string): string? Resolve real path
----@field cwd fun(): string? Get current working directory
----@field mkdir fun(dir: string) Create directory recursively
----@field chmod fun( mode: string,filepath: string) Set file permissions
----@field cp fun( src: string,dst: string, opts?:{recursive:boolean,force:boolean}) Set file permissions
-Utils.sh = {}
+local cmd = {}
 
 -- env module ---------------------------------------------------------
 
 ---@class env
 ---@field setenv fun(key: string, val: string) Set an environment variable
+---@field getenv fun(key: string): string? Get an environment variable
 local env = {}
 
 -- archiver module ----------------------------------------------------
 
----@class archiver
----@field decompress fun(archive: string, dest: string): string? Decompress an archive (.zip, .tar.gz, .tar.xz, .tar.bz2)
-local archiver = {}
+---@class ArchiverDecompressOpts
+---@field strip_components? integer Flatten top-level directories while retaining root files (0 or 1)
 
--- store module -------------------------------------------------------
----@alias AssetBundleFetchFn fun():table<Version,ToolchainBundle>
----@class Utils.store
----@field store_table fun(data: table, store_name: string): string? Write table to JSON store
----@field fetch_versions fun(store_name:string,fetch_fn:AssetBundleFetchFn):string[]
----@field fetch_toolchain_asset fun(store_name:string, fetch_fn:AssetBundleFetchFn, version:string):ToolchainBundle?
-Utils.store = {}
+---@class archiver
+---@field decompress fun(archive: string, dest: string, opts?: ArchiverDecompressOpts) Decompress an archive (.zip, .tar.gz, .tar.xz, .tar.bz2)
+local archiver = {}
 
 -- semver module ------------------------------------------------------
 
@@ -409,9 +192,7 @@ Utils.store = {}
 ---@field parse fun(version: string): integer[] Parse a version string into numeric parts
 ---@field sort fun(versions: string[]): string[] Sort version strings in ascending order
 ---@field sort_by fun(arr: table[], field: string): table[] Sort tables by a version field
----@field check_version fun(version: string,constraints:ReleasesConstraints):boolean
----@field spairs fun(t: table):[(fun(table: table, index?:number):Version,any),table]
-Utils.semver = {}
+local semver = {}
 
 -- strings module -----------------------------------------------------
 
@@ -423,7 +204,7 @@ Utils.semver = {}
 ---@field trim_space fun(s: string): string Trim whitespace from both ends
 ---@field contains fun(s: string, substr: string): boolean Check if string contains substring
 ---@field join fun(arr: any[], sep: string): string Join array elements with separator
-Utils.strings = {}
+local strings = {}
 
 -- html module --------------------------------------------------------
 

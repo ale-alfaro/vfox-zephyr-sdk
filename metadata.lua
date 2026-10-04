@@ -4,7 +4,7 @@
 
 PLUGIN = {
     name = "vfox-zephyr-sdk",
-    version = "0.4.6",
+    version = "0.4.7",
     description = "A mise backend plugin for the Zephyr SDK and West tools fo zephyr-rtos development",
     author = "ale-alfaro",
     depends = { "cmake", "uv" },
