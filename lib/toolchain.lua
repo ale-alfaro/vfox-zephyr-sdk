@@ -5,7 +5,6 @@ local M = {}
 
 local GITHUB_REPO = "zephyrproject-rtos/sdk-ng"
 local MIN_VERSION = "0.17.0"
-local MAX_VERSION = "1.1.0"
 -- The SDK only ships an LLVM/Clang toolchain from 1.0.0 onwards.
 local LLVM_MIN_VERSION = "1.0.0"
 -- Installed when the bare `zephyr-sdk` (toolchain) tool is used without any
@@ -22,7 +21,7 @@ local github_fetch_releases = function() ---@as AssetBundleFetchFn
     local bundles = Utils.net.get_json_payload(request, function(bundle) ---@as ToolchainBundle[]?
         if bundle["tag_name"] then
             return Utils.semver.check_version(bundle.tag_name, {
-                version = { min = MIN_VERSION, max = MAX_VERSION },
+                version = { min = MIN_VERSION },
                 prerelease = false,
             })
         end
