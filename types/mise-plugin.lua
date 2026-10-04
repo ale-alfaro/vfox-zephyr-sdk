@@ -361,7 +361,7 @@ Utils.fs = {}
 ---@class CmdExecOpts
 ---@field cwd? string Working directory
 ---@field env? table<string, string> Environment variables
----@field timeout? integer Timeout in milliseconds
+---@field timeout? number Timeout in seconds . Can be fraction
 
 ---@class utils.CmdExecOpts : CmdExecOpts
 ---@field fail? boolean If true a failure in the command exec will error out

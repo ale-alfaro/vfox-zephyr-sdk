@@ -107,9 +107,9 @@ function M.install(ctx)
     local target = opts.target or DEFAULT_TARGET
     local cmd = string.format("%q %s", setup_sh, (opts.family == "llvm" and " -l" or string.format(" -t %s", target)))
 
-    local out = Utils.sh.exec(Utils.strings.split(cmd, " "), { fail = true })
-    if out ~= nil then
-        Utils.err("Running setup cmd failed with error ")
+    local out = Utils.sh.exec(Utils.strings.split(cmd, " "), { fail = true, timeout = 300 })
+    if out == nil then
+        Utils.err("Running  " .. cmd .. " failed")
     end
 end
 
@@ -122,28 +122,25 @@ function M.envs(ctx) -- luacheck: no unused args
     -- Both GNU and LLVM ship inside the SDK root, so Zephyr's toolchain search
     -- only needs ZEPHYR_SDK_INSTALL_DIR plus the variant name. The SDK's LLVM is
     -- NOT a standalone `llvm` toolchain variant (that one expects an out-of-tree
-    -- LLVM_TOOLCHAIN_PATH and lives in <zephyr>/cmake/toolchain/llvm/). It is the
-    -- `zephyr` variant with the `llvm` compiler sub-flavor, selected via the
-    -- combined `zephyr/llvm` syntax that FindHostTools splits into
-    -- ZEPHYR_TOOLCHAIN_VARIANT=zephyr + TOOLCHAIN_VARIANT_COMPILER=llvm. That
-    -- routes the include to <sdk>/cmake/zephyr/llvm/generic.cmake, which exists.
-    -- The PATH entries below are a convenience for invoking the compilers
-    -- directly; the {VARIANT}_TOOLCHAIN_PATH var is not required here.
+    -- custom LLVM_TOOLCHAIN_PATH.
     local is_new_layout = Utils.semver.compare(version, "1.0.0") >= 0
     local variant = "zephyr"
     if is_new_layout then
-        variant = Utils.fs.join_path(variant, (opts.family == "llvm") and "llvm" or "gnu")
+        -- It is the
+        -- `zephyr` variant with the `llvm` compiler sub-flavor, selected via the
+        -- combined `zephyr/llvm` syntax that FindHostTools splits into
+        -- ZEPHYR_TOOLCHAIN_VARIANT=zephyr + TOOLCHAIN_VARIANT_COMPILER=llvm. That
+        -- routes the include to <sdk>/cmake/zephyr/llvm/generic.cmake, which exists.
+        variant = Utils.fs.join_path("zephyr", (opts.family == "llvm") and "llvm" or "gnu")
     end
     local env_vars = {
         { key = "ZEPHYR_TOOLCHAIN_VARIANT", value = variant },
         { key = "ZEPHYR_SDK_INSTALL_DIR", value = install_dir },
     }
-    if opts.family == "llvm" then
-        Utils.inf("Toolchain family is llvm", { env = env_vars })
-    else
+    -- The PATH is excluded for avoiding conflicts with host tools with the same name (clang)
+    if opts.family ~= "llvm" then
         local toolchain_root = is_new_layout and Utils.fs.join_path(install_dir, "gnu") or install_dir
         env_vars[#env_vars + 1] = { key = "PATH", value = Utils.fs.join_path(toolchain_root, opts.target, "bin") }
-        Utils.inf("Toolchain family is gnu", { env = env_vars })
     end
     return env_vars
 end

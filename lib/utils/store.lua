@@ -63,14 +63,14 @@ local function read_store(store_name, fetch_fn)
     local store_json, store_ts = store_paths(store_name)
     local store = {}
     if Utils.fs.exists(store_json) and is_fresh(store_ts) then
-        Utils.inf("Store exists already and is fresh, returning values stored there")
+        Utils.dbg("Store exists already and is fresh, returning values stored there")
         local ok, decoded = pcall(json.decode, Utils.file.read(store_json))
         if not ok then
             error("Failed to decode bundles")
         end
         store = decoded
     else
-        Utils.inf("Fetching new bundle store")
+        Utils.dbg("Fetching new bundle store")
         local bundles = fetch_fn()
         if not bundles then
             Utils.wrn("Could not fetch bundles online")
