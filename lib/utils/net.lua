@@ -195,7 +195,7 @@ function M.archived_asset_download(url, install_dir, download_dir, asset_opts)
             Utils.err("Extraction failed of asset", { asset = asset, err = err })
             return nil
         end
-        Utils.inf("Downloaded and extracted asset", { asset = asset })
+        Utils.dbg("Downloaded and extracted asset", { asset = asset })
         return asset
     end
 end
@@ -220,7 +220,7 @@ function M.executable_asset_download(url, install_dir, exe_name)
         Utils.err("Download failed: " .. (err or "unknown error"))
         return nil
     end
-    Utils.inf("Downloaded and extracted asset", { asset = asset })
+    Utils.dbg("Downloaded and extracted asset", { asset = asset })
     return asset
 end
 --- Downloads a file and raises on failure.

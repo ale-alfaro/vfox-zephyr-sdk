@@ -20,21 +20,24 @@ local M = {}
 function M.exec(exec_cmd, opts)
     Utils.validate("exec_cmd", exec_cmd, "table")
     Utils.validate("opts", opts, "table", true)
-    opts = opts or {}
+    local cmd_opts = Utils.tbl_extend("force", { timeout = 10.0 }, opts or {})
     local sh_cmd = Utils.strings.join(Utils.ensure_list(exec_cmd), " ") or ""
-    Utils.dbg("sh.exec: " .. sh_cmd)
+    Utils.dbg("sh.exec: " .. sh_cmd .. " timeout" .. tostring(cmd_opts.timeout))
     -- Forward only the keys cmd.exec understands; our extras (fail/silent) stay here.
-    local cmd_opts = Utils.tbl_extend("force", { timeout = 10.0 }, opts)
     local ok, result = pcall(cmd.exec, sh_cmd, cmd_opts)
     if not ok then
-        if not opts.silent then
+        if not cmd_opts.silent then
             Utils.err("Command failed", { cmd = sh_cmd })
             if type(result) == "string" then
                 Utils.err("stderr:  " .. result)
             end
         end
-        if opts.fail then
-            assert(false)
+        if cmd_opts.fail then
+            if type(result) ~= "string" then
+                error("Failed to run cmd through cmd.exec. ret:" .. tostring(result))
+            else
+                error("Failed to run cmd through cmd.exec. stderr: " .. result)
+            end
         end
         return nil
     end
