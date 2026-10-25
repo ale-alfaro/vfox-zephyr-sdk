@@ -36,7 +36,7 @@
 ---
 ---@class ZephyrSdkToolOptions
 ---@field target table<string,{target_triple:string}> Toolchain passed to `setup.sh -t` (e.g. "arm-zephyr-eabi")
----@field llvm boolean Whether to install the llvm toolchain as part of the ZephyrSDK install 
+---@field llvm boolean Whether to install the llvm toolchain as part of the ZephyrSDK install
 ---@field hosttools? boolean Install host tools
 
 ---@class ZephyrTool
@@ -121,7 +121,6 @@
 Utils = {}
 -- http module --------------------------------------------------------
 
-
 ---@class Utils.http
 ---@field get fun(opts: HttpRequestOpts): HttpResponse, string? Send a GET request
 ---@field head fun(opts: HttpRequestOpts): HttpResponse, string? Send a HEAD request (no body)
@@ -166,9 +165,7 @@ Utils.net = {}
 
 -- json module --------------------------------------------------------
 
-
 -- file module --------------------------------------------------------
-
 
 ---@class Utils.fs : file
 ---@field parents fun(start: string): fun(): string? Walk up directory tree
@@ -185,7 +182,6 @@ Utils.net = {}
 Utils.fs = {}
 
 -- cmd module ---------------------------------------------------------
-
 
 ---@class utils.CmdExecOpts : CmdExecOpts
 ---@field fail? boolean If true a failure in the command exec will error out
@@ -206,7 +202,6 @@ Utils.cmd = {}
 ---@field chmod fun( mode: string,filepath: string) Set file permissions
 ---@field cp fun( src: string,dst: string, opts?:{recursive:boolean,force:boolean}) Set file permissions
 Utils.sh = {}
-
 
 -- store module -------------------------------------------------------
 ---@alias AssetBundleFetchFn fun():table<Version,ToolchainBundle>
@@ -238,6 +233,5 @@ Utils.semver = {}
 ---@field contains fun(s: string, substr: string): boolean Check if string contains substring
 ---@field join fun(arr: any[], sep: string): string Join array elements with separator
 Utils.strings = {}
-
 
 return nil

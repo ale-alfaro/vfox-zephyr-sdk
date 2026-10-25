@@ -71,6 +71,16 @@ M.list_versions = function(ctx)
     end
     return versions
 end
+--- SDK >= 1.0.0 nests the GNU toolchains under `gnu/`.
+---@param install_path string
+---@param version string
+---@param target string
+---@return string
+local function gnu_bin(install_path, version, target)
+    local root = Utils.semver.compare(version, "1.0.0") >= 0 and Utils.fs.join_path(install_path, "gnu") or install_path
+    return Utils.fs.join_path(root, target, "bin")
+end
+
 --- Install a version of the Zephyr SDK toolchain.
 --- 1. Downloads the minimal SDK archive (contains setup.sh + cmake files)
 --- 2. Extracts it flat into install_path (--strip-components=1)
@@ -110,6 +120,12 @@ function M.install(ctx)
     if out == nil then
         Utils.err("Running  " .. cmd .. " failed")
     end
+    if opts.family ~= "llvm" then
+        -- The SDK's gdb-py needs a host libpython it never ships; the `gdb-py` tool
+        -- provides a working one under the same name, so drop these to keep PATH unambiguous.
+        local bin = gnu_bin(install_path, version, target)
+        Utils.sh.exec({ "rm", "-f", bin .. "/" .. target .. "-gdb-py", bin .. "/" .. target .. "-gdb-add-index-py" })
+    end
 end
 
 ---@param ctx BackendExecEnvCtx
@@ -138,8 +154,7 @@ function M.envs(ctx) -- luacheck: no unused args
     }
     -- The PATH is excluded for avoiding conflicts with host tools with the same name (clang)
     if opts.family ~= "llvm" then
-        local toolchain_root = is_new_layout and Utils.fs.join_path(install_dir, "gnu") or install_dir
-        env_vars[#env_vars + 1] = { key = "PATH", value = Utils.fs.join_path(toolchain_root, opts.target, "bin") }
+        env_vars[#env_vars + 1] = { key = "PATH", value = gnu_bin(install_dir, version, opts.target) }
     end
     return env_vars
 end

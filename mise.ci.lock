@@ -78,6 +78,45 @@ checksum = "sha256:a4439a8f5e8e9e6505c11f045a7bf45db602124a1e246371c1dbe34924f3c
 url = "https://github.com/LuaLS/lua-language-server/releases/download/3.18.2/lua-language-server-3.18.2-win32-x64.zip"
 url_api = "https://api.github.com/repos/LuaLS/lua-language-server/releases/assets/396269455"
 
+[[tools.stylua]]
+version = "2.6.0"
+backend = "aqua:JohnnyMorganz/StyLua"
+
+[tools.stylua."platforms.linux-arm64"]
+checksum = "sha256:8e67539e5fdf7a81cd03cf592b0df18d3bb96ee17a5ea5d9bf67b86387b903b0"
+url = "https://github.com/JohnnyMorganz/StyLua/releases/download/v2.6.0/stylua-linux-aarch64.zip"
+url_api = "https://api.github.com/repos/JohnnyMorganz/StyLua/releases/assets/628183586"
+
+[tools.stylua."platforms.linux-arm64-musl"]
+checksum = "sha256:8e67539e5fdf7a81cd03cf592b0df18d3bb96ee17a5ea5d9bf67b86387b903b0"
+url = "https://github.com/JohnnyMorganz/StyLua/releases/download/v2.6.0/stylua-linux-aarch64.zip"
+url_api = "https://api.github.com/repos/JohnnyMorganz/StyLua/releases/assets/628183586"
+
+[tools.stylua."platforms.linux-x64"]
+checksum = "sha256:48ee7db28346f96f4bd545e190ab080a88a7b5a664e97649cf5d5c60426f402d"
+url = "https://github.com/JohnnyMorganz/StyLua/releases/download/v2.6.0/stylua-linux-x86_64-musl.zip"
+url_api = "https://api.github.com/repos/JohnnyMorganz/StyLua/releases/assets/628184959"
+
+[tools.stylua."platforms.linux-x64-musl"]
+checksum = "sha256:48ee7db28346f96f4bd545e190ab080a88a7b5a664e97649cf5d5c60426f402d"
+url = "https://github.com/JohnnyMorganz/StyLua/releases/download/v2.6.0/stylua-linux-x86_64-musl.zip"
+url_api = "https://api.github.com/repos/JohnnyMorganz/StyLua/releases/assets/628184959"
+
+[tools.stylua."platforms.macos-arm64"]
+checksum = "sha256:dab9b66d340ca5ffc8225211f1dcf89b84783e09b8cbec8c518497eba81f3c42"
+url = "https://github.com/JohnnyMorganz/StyLua/releases/download/v2.6.0/stylua-macos-aarch64.zip"
+url_api = "https://api.github.com/repos/JohnnyMorganz/StyLua/releases/assets/628185466"
+
+[tools.stylua."platforms.macos-x64"]
+checksum = "sha256:90779aa873837b2dff8eb3361bd27950303914c24265a59cae0a0d0629d71585"
+url = "https://github.com/JohnnyMorganz/StyLua/releases/download/v2.6.0/stylua-macos-x86_64.zip"
+url_api = "https://api.github.com/repos/JohnnyMorganz/StyLua/releases/assets/628184646"
+
+[tools.stylua."platforms.windows-x64"]
+checksum = "sha256:fd13b4014e3b779c244bbc03f2c282e357f15bc526de6a6fa5ecbc447538313c"
+url = "https://github.com/JohnnyMorganz/StyLua/releases/download/v2.6.0/stylua-windows-x86_64.zip"
+url_api = "https://api.github.com/repos/JohnnyMorganz/StyLua/releases/assets/628186216"
+
 [[tools.uv]]
 version = "0.11.26"
 backend = "aqua:astral-sh/uv"
