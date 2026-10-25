@@ -26,7 +26,6 @@ ARCH_TYPE = ""
 -- PLUGIN table & hook method signatures
 ------------------------------------------------------------------------
 
-
 ---@class PreInstallCtx
 ---@field args string[] Command-line arguments
 ---@field version string Requested version
@@ -52,7 +51,6 @@ ARCH_TYPE = ""
 ---@field name string Name of tool
 ---@field description string?  Description of tool
 
-
 ---@class BackendToolsResponse
 ---@field tools BackendTool[] List of available tools
 
@@ -67,6 +65,7 @@ ARCH_TYPE = ""
 ---
 ---@class BackendListVersionsCtx
 ---@field tool string Tool name
+---@field options? table<string, any> Tool options from the current config
 
 ---@class BackendListVersionsResult
 ---@field versions string[] List of available versions

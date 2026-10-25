@@ -18,6 +18,7 @@ _G.ZephyrSdk = _G.ZephyrSdk or {}
 ZephyrSdk._tools = {
     west = true,
     gnuarmemb = true,
+    ["gdb-py"] = true,
     llvm = { name = "toolchain", options = { target = "llvm", family = "llvm" } },
     ["aarch64"] = { name = "toolchain", options = { target = "aarch64-zephyr-elf", family = "zephyr" } },
     ["arc64"] = { name = "toolchain", options = { target = "arc64-zephyr-elf", family = "zephyr" } },

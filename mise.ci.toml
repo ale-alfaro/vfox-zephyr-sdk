@@ -1,7 +1,6 @@
 [env]
 MISE_USE_VERSIONS_HOST = "0"
 
-
 [tools]
 lua-language-server = "latest"
 
@@ -34,7 +33,6 @@ mise install vfox-zephyr-test:{{usage.tool}}@latest
 {% endif %}
 mise rm vfox-zephyr-test:{{usage.tool}} --yes
 '''
-
 
 # Parameterized e2e test:
 [tasks."test:setup_plugin"]
@@ -82,6 +80,21 @@ west config --local zephyr.base zephyr
 mise x vfox-zephyr-test:west vfox-zephyr-test:{{usage.toolchain}} -- west build -p -b reel_board zephyr/samples/hello_world
 popd || true
 rm -rf "${test_sandbox?}"
+'''
+
+[tasks."test_e2e:gdb-py"]
+description = "Build gdb-py from source and check it boots its bundled Python after a move"
+depends_post = ["test:cleanup"]
+run = '''
+#!/usr/bin/env zsh
+mise use uv
+mise plugins ln vfox-zephyr-test . --force
+mise install vfox-zephyr-test:gdb-py@latest
+moved="${RUNNER_TEMP:-/tmp}/gdb-py-moved"
+rm -rf "$moved" && cp -r "$(mise where vfox-zephyr-test:gdb-py@latest)" "$moved"
+prefix=$("$moved/bin/arm-zephyr-eabi-gdb-py" --nx --batch -ex 'python import sys; print(sys.prefix)')
+[[ "$prefix" == "$moved/python" ]] || { echo "gdb-py did not relocate: $prefix"; exit 1; }
+rm -rf "$moved"
 '''
 
 [tasks."test:cleanup"]

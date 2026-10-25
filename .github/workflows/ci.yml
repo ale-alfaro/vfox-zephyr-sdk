@@ -15,6 +15,7 @@ jobs:
     runs-on: ${{matrix.os}}
     env:
       MISE_ENV: ci
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
@@ -44,3 +45,12 @@ jobs:
         if: matrix.zephyr-sdk-version == 'latest'
         run:
           mise run --timeout 10m test_e2e:toolchain:version gnuarmemb@latest
+      - name: Install gdb-py build dependencies (Linux)
+        if: runner.os == 'Linux' && matrix.zephyr-sdk-version == 'latest'
+        run:
+          sudo apt-get install -y --no-install-recommends bison flex libgmp-dev
+          libmpfr-dev libexpat1-dev libncurses-dev
+      - name: Test gdb-py source build and relocation
+        if: runner.os == 'Linux' && matrix.zephyr-sdk-version == 'latest'
+        run:
+          mise run --timeout 30m test_e2e:gdb-py
