@@ -1,4 +1,4 @@
---- @diagnostic disable: no-unknown
+---@diagnostic disable: no-unknown
 local inspect = {
     _VERSION = "inspect.lua 3.1.0",
     _URL = "http://github.com/kikito/inspect.lua",
@@ -119,11 +119,9 @@ local function escape(str)
 end
 
 local luaKeywords = {}
-for k in
-    ([[ and break do else elseif end false for function goto if
+for k in ([[ and break do else elseif end false for function goto if
              in local nil not or repeat return then true until while
-]]):gmatch("%w+")
-do
+]]):gmatch("%w+") do
     luaKeywords[k] = true
 end
 

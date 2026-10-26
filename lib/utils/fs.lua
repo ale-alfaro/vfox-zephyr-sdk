@@ -21,10 +21,10 @@ local os_sep = iswin and "\\" or "/"
 --- ```
 ---
 ---@since 10
----@param start (string) Initial path.
+---@param start(string) Initial path.
 ---@return fun(_, dir: string): string? # Iterator
 ---@return nil
----@return string|nil
+---@return string | nil
 function M.parents(start)
     return function(_, dir)
         local parent = M.dirname(dir)
@@ -76,17 +76,17 @@ function M.isdir(path)
     return string.sub(path, -1) == "/"
 end
 ---@alias PathType
----| "file"
----| "directory"
+--- | "file"
+--- | "directory"
 
 ---@class ScanDirOpts
----@field type? PathType - Whether or not to scan subdirectories recursively (default value = true)
----@field recursive? boolean - Whether or not to scan subdirectories recursively (default value = true)
----@field pattern? string - List of extensions to collect, if blank all will be collected
+---@field type?      PathType - Whether or not to scan subdirectories recursively (default value = true)
+---@field recursive? boolean - Whether  or not to scan subdirectories recursively (default value = true)
+---@field pattern?   string - List      of extensions to collect, if blank all will be collected
 
 --- Create a flat list of all files in a directory
----@param directory string - The directory to scan (default value = './')
----@param opts ScanDirOpts - The directory to scan (default value = './')
+---@param directory string - The      directory to scan (default value = './')
+---@param opts      ScanDirOpts - The directory to scan (default value = './')
 function M.scandir(directory, opts)
     Utils.validate("directory", directory, "string")
     Utils.validate("opts", opts, "table")
@@ -164,10 +164,10 @@ function M.dirname(file)
 end
 
 ---@class PathExistsOpts
----@field type PathType
+---@field type    PathType
 ---@field create? boolean
 
----@param path string
+---@param path  string
 ---@param opts? PathExistsOpts
 ---@return boolean
 function M.path_exists(path, opts)
@@ -207,16 +207,16 @@ end
 --- - `C:/foo/bar` -> `C:`, `/foo/bar`
 --- - `C:foo/bar` -> `C:`, `foo/bar`
 ---
---- @param path string Path to split.
---- @return string, string, boolean : prefix, body, whether path is invalid.
+---@param path string Path to split.
+---@return string, string, boolean : prefix, body, whether path is invalid.
 local function split_windows_path(path)
     local prefix = ""
 
     --- Match pattern. If there is a match, move the matched pattern from the path to the prefix.
     --- Returns the matched pattern.
     ---
-    --- @param pattern string Pattern to match.
-    --- @return string|nil Matched pattern
+    ---@param pattern string Pattern to match.
+    ---@return string | nil Matched pattern
     local function match_to_prefix(pattern)
         local match = path:match(pattern)
 
@@ -267,9 +267,9 @@ end
 --- `..` is not resolved if the path is relative and resolving it requires the path to be absolute.
 --- If a relative path resolves to the current directory, an empty string is returned.
 ---
---- @see M.normalize()
---- @param path string Path to resolve.
---- @return string Resolved path.
+---@see M.normalize()
+---@param path string Path to resolve.
+---@return string Resolved path.
 local function path_resolve_dot(path)
     local is_path_absolute = M.isabspath(path)
 
@@ -277,15 +277,13 @@ local function path_resolve_dot(path)
 
     for component in Utils.strings.split(path, "/") do
         if component == "." or component == "" then -- luacheck: ignore 542
-        -- Skip `.` components and empty components
-        elseif component == ".." then
+            -- Skip `.` components and empty componentselseif component == ".." then
             if #new_path_components > 0 and new_path_components[#new_path_components] ~= ".." then
                 -- For `..`, remove the last component if we're still inside the current directory, except
                 -- when the last component is `..` itself
                 table.remove(new_path_components)
             elseif is_path_absolute then -- luacheck: ignore 542
-            -- Reached the root directory in absolute path, do nothing
-            else
+                -- Reached the root directory in absolute path, do nothingelse
                 -- Reached current directory in relative path, add `..` to the path
                 table.insert(new_path_components, component)
             end
@@ -299,33 +297,33 @@ end
 
 --- Expand tilde (~) character at the beginning of the path to the user's home directory.
 ---
---- @param path string Path to expand.
---- @param sep string|nil Path separator to use. Uses os_sep by default.
---- @return string Expanded path.
+---@param path string       Path to expand.
+---@param sep  string | nil Path separator to use. Uses os_sep by default.
+---@return string Expanded path.
 local function expand_home(path, sep)
     sep = sep or os_sep
 
     if Utils.strings.has_prefix(path, "~") then
-        local home = os.getenv("HOME") or "~" --- @type string
+        local home = os.getenv("HOME") or "~" ---@type string
 
         if home:sub(-1) == sep then
             home = home:sub(1, -2)
         end
 
-        path = home .. path:sub(2) --- @type string
+        path = home .. path:sub(2) ---@type string
     end
 
     return path
 end
 
---- @class Utils.fs.normalize.Opts
---- @inlinedoc
+---@class Utils.fs.normalize.Opts
+---@inlinedoc
 ---
 --- Expand environment variables.
 --- (default: `true`)
---- @field expand_env? boolean
+---@field expand_env?    boolean
 ---
---- @field package _fast? boolean
+---@field package _fast? boolean
 
 --- Normalize a path to a standard format. A tilde (~) character at the beginning of the path is
 --- expanded to the user's home directory and environment variables are also expanded. "." and ".."
@@ -357,7 +355,7 @@ end
 --- ```
 ---
 ---@since 10
----@param path (string) Path to normalize
+---@param path  string                  Path to normalize
 ---@param opts? Utils.fs.normalize.Opts
 ---@return (string) : Normalized path
 function M.normalize(path, opts)
@@ -381,7 +379,7 @@ function M.normalize(path, opts)
 
     -- Expand environment variables if `opts.expand_env` isn't `false`
     if opts.expand_env == nil or opts.expand_env then
-        path = path:gsub("%$([%w_]+)", os.getenv) --- @type string
+        path = path:gsub("%$([%w_]+)", os.getenv) ---@type string
     end
 
     if win then
@@ -398,7 +396,7 @@ function M.normalize(path, opts)
     local prefix = ""
 
     if win then
-        local is_valid --- @type boolean
+        local is_valid ---@type boolean
         -- Split Windows paths into prefix and body to make processing easier
         prefix, path, is_valid = split_windows_path(path)
 
@@ -434,9 +432,9 @@ end
 --- symlinks or hardlinks (including `.` and `..`), or expand environment variables. If the path is
 --- already absolute, it is returned unchanged. Also converts `\` path separators to `/`.
 ---
---- @since 13
---- @param path string Path
---- @return string Absolute path
+---@since 13
+---@param path string Path
+---@return string Absolute path
 function M.abspath(path)
     -- TODO(justinmk): mark f_fnamemodify as API_FAST and use it, ":p:h" should be safe...
 
@@ -481,9 +479,9 @@ end
 --- Utils.fs.relpath('/var', '/usr/bin') -- nil
 --- ```
 ---
---- @param base string
---- @param target string
---- @return string|nil
+---@param base   string
+---@param target string
+---@return string | nil
 function M.relpath(base, target)
     Utils.validate("base", base, "string")
     Utils.validate("target", target, "string")

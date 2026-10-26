@@ -25,11 +25,11 @@ end
 local M = {}
 
 ---@return string[] versions
-M.list_versions = function ()
+M.list_versions = function()
     return { "1.5.0" } --- only supporting newest west version
 end
 
-M.release_dates = function ()
+M.release_dates = function()
     return Utils.source_dates(M.list_versions(), "lib/west.lua")
 end
 --- Generates and installs the west shim script into the mise install path.
@@ -42,11 +42,11 @@ function M.install(ctx)
     local plugin_west = Utils.fs.join_path(RUNTIME.pluginDirPath, "bin", "west")
     local requirements = {
         Utils.fs.join_path(RUNTIME.pluginDirPath, "scripts", "requirements.in"),
-        unpack(Utils.ensure_list(opts.additional_requirements or {}))
+        unpack(Utils.ensure_list(opts.additional_requirements or {})),
     }
     local cmd = require("cmd")
     if not Utils.fs.exists(plugin_west) then
-        local requirement_flags = Utils.strings.join(Utils.list_filter(function (req)
+        local requirement_flags = Utils.strings.join(Utils.list_filter(function(req)
                 if not Utils.fs.exists(req) then
                     Utils.wrn("Could'nt find requirement ", { req = req })
                     return false
@@ -60,7 +60,7 @@ function M.install(ctx)
                 "--script",
                 plugin_west,
                 "--python",
-                PYTHON_VERSION
+                PYTHON_VERSION,
             }, " "))
         -- Let uv resolve deps from requirements.in and write them into the inline metadata
         cmd.exec(Utils.strings.join({
@@ -68,19 +68,19 @@ function M.install(ctx)
                 "add",
                 "--script",
                 plugin_west,
-                requirement_flags
+                requirement_flags,
             }, " "))
         edit_west_script(plugin_west)
         cmd.exec(Utils.strings.join({
                 "uv",
                 "lock",
                 "--script",
-                plugin_west
+                plugin_west,
             }, " "))
         cmd.exec(Utils.strings.join({
                 "chmod",
                 "+x",
-                plugin_west
+                plugin_west,
             }, " "))
         Utils.inf("Created new plugin west shim based on requiements", { plugin_west = plugin_west })
     end

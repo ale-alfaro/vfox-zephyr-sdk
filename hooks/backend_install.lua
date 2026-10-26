@@ -1,5 +1,5 @@
---- @param ctx BackendInstallCtx
---- @return BackendInstallResult
+---@param ctx BackendInstallCtx
+---@return BackendInstallResult
 function PLUGIN:BackendInstall(ctx)
     require("zephyr_sdk")
     local tool = ZephyrSdk[ctx.tool]

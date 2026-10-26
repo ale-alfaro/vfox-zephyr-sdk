@@ -1,5 +1,5 @@
---- @param _ctx BackendListToolsCtx
---- @return BackendListToolsResult
+---@param _ctx BackendListToolsCtx
+---@return BackendListToolsResult
 function PLUGIN:BackendListTools(_ctx)
     return {
         tools = {

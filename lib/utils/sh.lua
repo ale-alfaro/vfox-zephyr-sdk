@@ -15,7 +15,7 @@ local M = {}
 -- ─── Safe execution ──────────────────────────────────────────────────
 
 ---@param exec_cmd string[]
----@param opts? utils.CmdExecOpts
+---@param opts?    utils.CmdExecOpts
 ---@return string? output
 function M.exec(exec_cmd, opts)
     Utils.validate("exec_cmd", exec_cmd, "table")
@@ -46,9 +46,9 @@ end
 
 --- Execute a formatted shell command and return its captured output.
 ---@param opts? utils.CmdExecOpts
----@param fmt string Format string (passed to string.format)
----@param ... any Format arguments
----@return string|nil output Captured stdout
+---@param fmt   string            Format string (passed to string.format)
+---@param ...   any               Format arguments
+---@return string | nil output Captured stdout
 function M.execf(opts, fmt, ...)
     return M.exec(Utils.strings.split(string.format(fmt, ...), " "), opts)
 end
@@ -92,16 +92,16 @@ function M.mkdir(dir)
 end
 
 --- Set file permissions (POSIX only).
----@param mode string Permission mode (e.g. "+x", "755")
+---@param mode     string Permission mode (e.g. "+x", "755")
 ---@param filepath string File path
 function M.chmod(mode, filepath)
     M.exec({ "chmod", mode, filepath }, { fail = true })
 end
 
 --- Set file permissions (POSIX only).
----@param src string Permission mode (e.g. "+x", "755")
----@param dst string File path
----@param opts {recursive:boolean,force:boolean}File path
+---@param src  string                                 Permission mode (e.g. "+x", "755")
+---@param dst  string                                 File path
+---@param opts { recursive: boolean, force: boolean } File path
 function M.cp(src, dst, opts)
     local cp_cmd = { "cp" }
     opts = opts or {}

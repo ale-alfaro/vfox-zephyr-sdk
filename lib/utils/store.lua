@@ -1,6 +1,6 @@
 local M = {
     ---@type table<Version, table>
-    cache = {}
+    cache = {},
 }
 
 local cache_ttl = 12 * 60 * 60 -- 12 hours in seconds

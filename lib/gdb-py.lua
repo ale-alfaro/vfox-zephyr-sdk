@@ -17,12 +17,12 @@ local PY_VER = "3.12.15"
 local DEFAULT_TARGET = "arm-zephyr-eabi"
 
 ---@return string[] versions
-M.list_versions = function ()
+M.list_versions = function()
     return { VERSION }
 end
 
 --- The branch carries no release date; the build recipe here is what changes, so date by its last commit.
-M.release_dates = function ()
+M.release_dates = function()
     return Utils.source_dates({ VERSION }, "lib/gdb-py.lua")
 end
 
@@ -61,7 +61,7 @@ function M.install(ctx)
     local jobs = tostring(opts.jobs or Utils.sh.exec({ "nproc" }) or 1)
     local env = {
         "env", "CC=gcc", "CXX=g++", "CFLAGS=-O2", "CXXFLAGS=-O2", "LDFLAGS=-L" .. py .. "/lib",
-        "LD_RUN_PATH='$ORIGIN/../python/lib'"
+        "LD_RUN_PATH='$ORIGIN/../python/lib'",
     }
     local function run(args)
         Utils.sh.exec(Utils.list_extend(Utils.list_extend({}, env), args), { fail = true, cwd = build, timeout = 3600 })
@@ -91,7 +91,7 @@ function M.install(ctx)
         "--with-expat",
         "--with-python=" .. Utils.fs.join_path(py, "bin", "python3"),
         "--with-python-libdir=" .. Utils.fs.join_path(py, "lib"),
-        "--with-pkgversion='vfox-zephyr-sdk gdb-py'"
+        "--with-pkgversion='vfox-zephyr-sdk gdb-py'",
     })
     Utils.inf("Building GDB", { jobs = jobs })
     run({ "make", "-j" .. jobs, "MAKEINFO=true", "all-gdb" })
@@ -112,7 +112,12 @@ end
 ---@return EnvKey[]
 function M.envs(ctx)
     Utils.validate_ctx(ctx, "exec")
-    return { { key = "PATH", value = Utils.fs.join_path(ctx.install_path, "bin") } }
+    return {
+        {
+            key = "PATH",
+            value = Utils.fs.join_path(ctx.install_path, "bin"),
+        },
+    }
 end
 
 return M

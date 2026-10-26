@@ -24,8 +24,8 @@ end
 --- Download a file using curl with a visible progress bar.
 --- curl writes progress to stderr, which passes through to the terminal.
 --- Falls back to mise's http.try_download_file if curl is not available.
----@param url string Download URL
----@param dest string Destination file path
+---@param url      string                Download URL
+---@param dest     string                Destination file path
 ---@param headers? table<string, string> Optional HTTP headers
 ---@return boolean ok
 ---@return string? err
@@ -63,9 +63,9 @@ end
 
 ---
 
---- @param repo string
---- @param components string
---- @param opts GhApiOpts
+---@param repo       string
+---@param components string
+---@param opts       GhApiOpts
 ---@return HttpRequestOpts
 function M.gh_api(repo, components, opts)
     Utils.validate("repo", repo, "string")
@@ -85,15 +85,12 @@ function M.gh_api(repo, components, opts)
         headers["Authorization"] = string.format("Bearer %s", gh_token)
     end
     local url = Utils.fs.join_path(GITHUB_REPOS_URL, repo, components)
-    return {
-        url = url,
-        headers = headers,
-    }
+    return { url = url, headers = headers }
 end
 
----@param repo string
----@param asset_id string
----@param install_path string
+---@param repo          string
+---@param asset_id      string
+---@param install_path  string
 ---@param download_path string
 ---@return string
 function M.github_asset_download(repo, asset_id, install_path, download_path)
@@ -119,8 +116,8 @@ end
 --- directory, promoting that directory's contents into `install_dir`
 --- (the native-archiver equivalent of `tar --strip-components=1`).
 ---@param archive_path string Downloaded archive
----@param install_dir string Destination (pre-created empty by mise)
----@param root_dir string Name of the archive's single top-level directory
+---@param install_dir  string Destination (pre-created empty by mise)
+---@param root_dir     string Name of the archive's single top-level directory
 ---@return string?
 function M.decompress_strip_components(archive_path, install_dir, root_dir)
     Utils.validate("archive_path", archive_path, "string")
@@ -166,10 +163,10 @@ function M.decompress_strip_components(archive_path, install_dir, root_dir)
     return install_dir
 end
 
----@param url string
----@param install_dir string
+---@param url          string
+---@param install_dir  string
 ---@param download_dir string
----@param asset_opts? {name:string, strip_components:integer?}
+---@param asset_opts?  { name: string, strip_components: integer? }
 ---@return string?
 function M.archived_asset_download(url, install_dir, download_dir, asset_opts)
     Utils.validate("url", url, "string")
@@ -200,9 +197,9 @@ function M.archived_asset_download(url, install_dir, download_dir, asset_opts)
     end
 end
 
----@param url string
+---@param url         string
 ---@param install_dir string
----@param exe_name? string
+---@param exe_name?   string
 ---@return string?
 function M.executable_asset_download(url, install_dir, exe_name)
     Utils.validate("url", url, "string")
@@ -224,8 +221,8 @@ function M.executable_asset_download(url, install_dir, exe_name)
     return asset
 end
 --- Downloads a file and raises on failure.
----@param request string|HttpRequestOpts
----@param filter_fn? fun(table):boolean?
+---@param request        string | HttpRequestOpts
+---@param filter_fn?     fun(table): boolean?
 ---@param key_to_filter? string
 ---@return table?
 function M.get_json_payload(request, filter_fn, key_to_filter)

@@ -2,7 +2,7 @@ local M = require("semver")
 local semver_pattern = "^v([0-9]+%.[0-9]+%.[0-9]+)$"
 local semver_prerelease_pattern = "^v([0-9]+%.[0-9]+%.[0-9]+)%-(%w+)$"
 
----@param version string
+---@param version     string
 ---@param constraints ReleasesConstraints
 ---@return boolean
 function M.check_version(version, constraints)
@@ -37,14 +37,14 @@ end
 ---
 ---@generic T: table, K, V
 ---@param t T Dict-like table
----@return fun(table: table<K, V>, index?: K):K, V # |for-in| iterator over sorted keys and their values
+---@return fun(table: table<K, V>, index?: K): K, V # |for-in| iterator over sorted keys and their values
 ---@return T
 function M.spairs(t)
     Utils.validate("t", t, "table")
-    --- @cast t table<any,any>
+    ---@cast t table<any, any>
     local semver = require("semver")
     -- collect the keys
-    local keys = semver.sort(Utils.tbl_keys(t)) --- @type string[]
+    local keys = semver.sort(Utils.tbl_keys(t)) ---@type string[]
     -- Return the iterator function.
     local i = 0
     return function()

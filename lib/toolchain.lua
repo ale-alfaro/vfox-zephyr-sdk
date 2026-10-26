@@ -15,16 +15,16 @@ local STORE_KEY = "zephyr_minimal_toolchains"
 
 --- Fetch available SDK release versions from GitHub.
 --- Filters out pre-releases, drafts, and versions below MIN_VERSION.
-local github_fetch_releases = function ()
+local github_fetch_releases = function()
     ---@as AssetBundleFetchFn
     local request = Utils.net.gh_api(GITHUB_REPO, "releases", { reqType = "GET" })
 
-    local bundles = Utils.net.get_json_payload(request, function (bundle)
+    local bundles = Utils.net.get_json_payload(request, function(bundle)
         ---@as ToolchainBundle[]?
         if bundle["tag_name"] then
             return Utils.semver.check_version(bundle.tag_name, {
                 version = { min = MIN_VERSION },
-                prerelease = false
+                prerelease = false,
             })
         end
         return false
@@ -37,8 +37,8 @@ local github_fetch_releases = function ()
     local asset_pattern = Utils.platform_create_string("_{os}-{arch}_minimal{ext}", {
         exttype = "archive",
         override = {
-            ["{ext}"] = ext
-        }
+            ["{ext}"] = ext,
+        },
     })
     for _, release in ipairs(bundles) do
         local version = release.tag_name:gsub("^v", "")
@@ -50,7 +50,7 @@ local github_fetch_releases = function ()
                     version = version,
                     download_url = asset.browser_download_url or asset.url,
                     checksum = asset.digest,
-                    created_at = release.published_at
+                    created_at = release.published_at,
                 }
             end
         end
@@ -63,19 +63,19 @@ end
 --- filters the shared release list down to the versions that ship it.
 ---@param ctx BackendListVersionsCtx
 ---@return string[] versions
-M.list_versions = function (ctx)
+M.list_versions = function(ctx)
     Utils.validate_ctx(ctx, "list-versions")
     local opts = ctx.options or {} ---@as ZephyrSdkToolOptions
     local versions = Utils.store.fetch_versions(STORE_KEY, github_fetch_releases)
     if opts and opts.target == "llvm" then
-        versions = Utils.list_filter(function (version)
+        versions = Utils.list_filter(function(version)
             return Utils.semver.compare(version, LLVM_MIN_VERSION) >= 0
         end, versions)
     end
     return versions
 end
 
-M.release_dates = function ()
+M.release_dates = function()
     return Utils.store.fetch_release_dates(STORE_KEY, github_fetch_releases)
 end
 
@@ -154,7 +154,7 @@ function M.envs(ctx) -- luacheck: no unused args
         variant = Utils.fs.join_path("zephyr", (opts.family == "llvm") and "llvm" or "gnu")
     end
     local env_vars = {
-        { key = "ZEPHYR_TOOLCHAIN_VARIANT", value = variant }, { key = "ZEPHYR_SDK_INSTALL_DIR", value = install_dir }
+        { key = "ZEPHYR_TOOLCHAIN_VARIANT", value = variant }, { key = "ZEPHYR_SDK_INSTALL_DIR", value = install_dir },
     }
     -- The PATH is excluded for avoiding conflicts with host tools with the same name (clang)
     if opts.family ~= "llvm" then
