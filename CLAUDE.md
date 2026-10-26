@@ -9,11 +9,9 @@ A mise backend plugin for the Zephyr SDK. It manages installation of Zephyr tool
 ## Commands
 
 ```bash
-# Lint (lua-language-server type checking at Error level)
+# Lint: emmylua_check at Error level + luafmt --check (config: .emmyrc.json, .luafmt.toml)
 mise run lint
-
-# Format Lua code
-mise run format          # uses StyLua (stylua.toml)
+hk check                 # same, via hk; `hk fix` formats with luafmt
 
 # Test
 mise run smoke_test      # quick: lists versions + runs tool commands from tests/tools.txt
@@ -30,11 +28,11 @@ mise x zephyr-sdk-test:west@0.17.0 -- west --version
 MISE_DEBUG=1 mise install zephyr-sdk-test:west@0.17.0
 ```
 
-CI tasks are defined in `mise.ci.toml`. Local dev tools (`uv`, `lua-language-server`) are configured in `mise.local.toml`.
+CI tasks and the Lua tooling (`cargo:emmylua_check`, `cargo:emmylua_formatter`) are defined in `mise.ci.toml`.
 
 ## Lua Runtime
 
-The plugin runs under **gopher-lua (Lua 5.1)**, not standard Lua 5.4. This affects available builtins and standard library. Linter/LSP configs (`.luarc.json`, `.luacheckrc`) are set to `Lua 5.1`.
+The plugin runs under **gopher-lua (Lua 5.1)**, not standard Lua 5.4. This affects available builtins and standard library. `.emmyrc.json` pins the checker to `Lua5.1`.
 
 ## Architecture
 
@@ -58,7 +56,7 @@ Each tool module exports `list_versions()`, `install(ctx)`, and `envs(ctx)`.
 
 ### Mise-provided globals and modules
 
-Four globals are injected by the mise runtime (declared in `.luarc.json` and `.luacheckrc`):
+Four globals are injected by the mise runtime (declared in `.emmyrc.json`):
 - `PLUGIN` -- plugin metadata from `metadata.lua`
 - `RUNTIME` -- mise runtime context
 - `Utils` -- utility library (loaded from `lib/utils/`)
@@ -76,6 +74,6 @@ Mise also provides these via `require`: `cmd`, `http`, `json`, `archiver`, `file
 
 ## Code Style
 
-- StyLua formatting: 4-space indent, 120-char line width, Unix line endings (`stylua.toml`)
+- luafmt formatting: 4-space indent, 120-char line width (`.luafmt.toml`)
 - Unused args prefixed with `_`
-- Type annotations in `types/mise-plugin.lua`; type stubs excluded from luacheck
+- Type annotations in `types/mise-plugin.lua` and `types/lib.lua`

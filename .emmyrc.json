@@ -1,0 +1,31 @@
+{
+  "$schema": "https://raw.githubusercontent.com/EmmyLuaLs/emmylua-analyzer-rust/refs/heads/main/crates/emmylua_code_analysis/resources/schema.json",
+  "runtime": {
+    "version": "Lua5.1"
+  },
+  "workspace": {
+    "library": ["./lib", "./types"],
+    "ignoreDir": ["./.vscode", "./tests", "./.nvim", "./bin", "./scripts", "./zephyr-sdk-test", "./mise-tasks"],
+    "ignoreGlobs": [".nvim.lua"]
+  },
+  "diagnostics": {
+    "disable": ["duplicate-set-field"],
+    "globals": ["Utils", "PLUGIN", "RUNTIME", "ZephyrSdk"],
+    "severity": {
+      "unused-local": "warning",
+      "unused-function": "warning",
+      "cast-local-type": "warning",
+      "redundant-parameter": "error",
+      "missing-parameter": "error",
+      "missing-return-value": "error",
+      "missing-return": "error",
+      "param-type-mismatch": "error",
+      "return-type-mismatch": "error",
+      "assign-type-mismatch": "error",
+      "undefined-field": "error",
+      "inject-field": "warning",
+      "need-check-nil": "warning",
+      "redundant-value": "warning"
+    }
+  }
+}

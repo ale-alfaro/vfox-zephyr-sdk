@@ -2,15 +2,13 @@
 MISE_USE_VERSIONS_HOST = "0"
 
 [tools]
-lua-language-server = "latest"
-stylua = "latest"
+"cargo:emmylua_check" = "latest"
+"cargo:emmylua_formatter" = "latest"
 
 [tasks.lint]
 description = "Lint Lua sources"
-run = [
-  'lua-language-server --check . --checklevel=Error --logpath="${RUNNER_TEMP:-/tmp}/luals-log"',
-  'stylua --check .',
-]
+# luafmt stays off types/: it duplicates multi-line doc comments there on every pass.
+run = ['emmylua_check --severity=error .', 'luafmt --check hooks lib']
 
 # Parameterized smoke test: install one toolchain variant and verify its
 # compiler runs. Override TOOL/BIN/VERSION via `extends` to test another
