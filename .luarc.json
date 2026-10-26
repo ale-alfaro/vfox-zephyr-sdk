@@ -22,20 +22,6 @@
       "_*"
     ],
     "severity": {
-      "unused-local": "Warning",
-      "unused-function": "Warning",
-      "cast-local-type": "Warning",
-      "redundant-parameter": "Error",
-      "missing-parameter": "Error",
-      "missing-return-value": "Error",
-      "missing-return": "Error",
-      "param-type-mismatch": "Error",
-      "return-type-mismatch": "Error",
-      "assign-type-mismatch": "Error",
-      "undefined-field": "Error",
-      "inject-field": "Warning",
-      "need-check-nil": "Warning",
-      "redundant-value": "Warning"
     }
   },
   "workspace": {

@@ -14,7 +14,7 @@ _G.ZephyrSdk = _G.ZephyrSdk or {}
 --- The tool name doubles as the `ZEPHYR_TOOLCHAIN_VARIANT` mental model:
 --- arch names (arm, aarch64, …) are the `zephyr` GNU variant, while `llvm` and
 --- `gnuarmemb` are standalone, option-less variant tools of their own.
----@class ZephyrSdk._tools : table<string, ZephyrTool>
+---@class ZephyrSdk._tools: table<string, ZephyrTool>
 ZephyrSdk._tools = {
     west = true,
     gnuarmemb = true,
@@ -30,7 +30,7 @@ ZephyrSdk._tools = {
     ["riscv64"] = { name = "toolchain", options = { target = "riscv64-zephyr-elf", family = "zephyr" } },
     ["rx"] = { name = "toolchain", options = { target = "rx-zephyr-elf", family = "zephyr" } },
     ["sparc"] = { name = "toolchain", options = { target = "sparc-zephyr-elf", family = "zephyr" } },
-    ["x86_64"] = { name = "toolchain", options = { target = "x86_64-zephyr-elf", family = "zephyr" } },
+    ["x86_64"] = { name = "toolchain", options = { target = "x86_64-zephyr-elf", family = "zephyr" } }
 }
 
 --- Build a thin wrapper around the generic `toolchain` module that injects the
@@ -46,8 +46,8 @@ local function build_toolchain_alias(spec)
     Utils.validate("tool_name", tool_name, "string")
     Utils.validate("tool_options", tool_options, "table")
     local tool = require(tool_name)
-    local inject = function(fn)
-        return function(ctx)
+    local inject = function (fn)
+        return function (ctx)
             Utils.validate("ctx", ctx, "table")
             ctx.options = ctx.options or {}
             ctx.options = Utils.tbl_extend("force", ctx.options, tool_options)
@@ -60,15 +60,16 @@ local function build_toolchain_alias(spec)
         -- Version availability depends on the variant (e.g. LLVM needs the SDK
         -- >= 1.0.0), so forward the family instead of using the raw list.
         list_versions = inject(tool.list_versions),
+        release_dates = tool.release_dates and inject(tool.release_dates),
         install = inject(tool.install),
-        envs = inject(tool.envs),
+        envs = inject(tool.envs)
     }
 end
 
 -- Lazy-load tool modules on first access; resolve toolchain aliases on demand.
 setmetatable(ZephyrSdk, {
-    --- @param t table<string,ZephyrTool>
-    __index = function(t, key)
+    ---@param t table<string, ZephyrTool>
+    __index = function (t, key)
         local spec = ZephyrSdk._tools[key]
         if type(spec) == "boolean" then
             t[key] = require(key)
@@ -78,5 +79,5 @@ setmetatable(ZephyrSdk, {
             error("Tool not registered " .. key)
         end
         return t[key]
-    end,
+    end
 })

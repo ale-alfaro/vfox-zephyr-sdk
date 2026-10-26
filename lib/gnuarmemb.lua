@@ -22,7 +22,7 @@ local KNOWN_VERSIONS = { "15.2.rel1", "14.3.rel1", "14.2.rel1", "13.3.rel1", "13
 local HOST_TOKENS = {
     linux = { x86_64 = "x86_64", aarch64 = "aarch64" },
     macos = { x86_64 = "darwin-x86_64", aarch64 = "darwin-arm64" },
-    windows = { x86_64 = "mingw-w64-i686", aarch64 = "mingw-w64-i686" },
+    windows = { x86_64 = "mingw-w64-i686", aarch64 = "mingw-w64-i686" }
 }
 
 --- Resolve the Arm host token for the current platform.
@@ -54,9 +54,28 @@ end
 
 ---@param ctx BackendListVersionsCtx
 ---@return string[] versions
-M.list_versions = function(ctx)
+M.list_versions = function (ctx)
     Utils.validate("ctx", ctx, "table")
     return KNOWN_VERSIONS
+end
+
+local MONTHS = { Jan = 1, Feb = 2, Mar = 3, Apr = 4, May = 5, Jun = 6, Jul = 7, Aug = 8, Sep = 9, Oct = 10, Nov = 11, Dec = 12 }
+
+--- Arm publishes no release feed, so date each version by the artifact's Last-Modified header.
+--- HTTP dates ("Tue, 15 Nov 1994 08:12:31 GMT") are converted to RFC 3339.
+---@return table<string, string>
+M.release_dates = function ()
+    local http = require("http")
+    local dates = {}
+    for _, version in ipairs(KNOWN_VERSIONS) do
+        local resp = http.try_head({ url = asset_url(version), headers = { ["User-Agent"] = "mise-plugin" } })
+        local modified = resp and resp.headers and (resp.headers["Last-Modified"] or resp.headers["last-modified"])
+        local d, mon, y, hms = (modified or ""):match("(%d+) (%a+) (%d+) (%d+:%d+:%d+)")
+        if MONTHS[mon] then
+            dates[version] = string.format("%s-%02d-%02dT%sZ", y, MONTHS[mon], tonumber(d), hms)
+        end
+    end
+    return dates
 end
 
 --- Download and extract the GNU Arm Embedded toolchain into install_path.
@@ -74,7 +93,7 @@ function M.install(ctx)
     Utils.inf("Downloading GNU Arm Embedded toolchain", { version = version, url = url })
     local res = Utils.net.archived_asset_download(url, install_path, download_path, {
         name = asset_basename(version),
-        strip_components = 1,
+        strip_components = 1
     })
     if not res then
         Utils.fatal("Failed to install the gnuarmemb toolchain", { version = version, url = url })
@@ -94,7 +113,7 @@ function M.envs(ctx) -- luacheck: no unused args
     return {
         { key = "ZEPHYR_TOOLCHAIN_VARIANT", value = "gnuarmemb" },
         { key = "GNUARMEMB_TOOLCHAIN_PATH", value = install_path },
-        { key = "PATH", value = Utils.fs.join_path(install_path, "bin") },
+        { key = "PATH", value = Utils.fs.join_path(install_path, "bin") }
     }
 end
 

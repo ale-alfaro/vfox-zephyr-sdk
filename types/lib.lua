@@ -24,6 +24,7 @@
 ---@field version string
 ---@field checksum string
 ---@field download_url string
+---@field created_at? string Release date, RFC 3339
 
 ---
 ---@class ZephyrSdkAsset : ToolchainBundle
@@ -40,7 +41,8 @@
 ---@field hosttools? boolean Install host tools
 
 ---@class ZephyrTool
----@field list_versions fun(opts?: ToolOptions): string[]
+---@field list_versions fun(ctx?: BackendListVersionsCtx): string[]
+---@field release_dates? fun(ctx: BackendListVersionsCtx): table<string,string> Version -> RFC 3339 date
 ---@field install fun(ctx: BackendInstallCtx): nil
 ---@field envs fun(ctx: BackendExecEnvCtx): table<string,string>
 ---@field name string Name
@@ -105,6 +107,7 @@
 ---@field sh Utils.sh
 ---@field net Utils.net
 ---@field store Utils.store
+---@field source_dates fun(versions: string[], rel_path: string): table<string,string>
 ---@field inspect fun(root: any, options?: table): string
 --- Core utility functions
 ---@field inf fun(...: any) Log at info level
@@ -208,6 +211,7 @@ Utils.sh = {}
 ---@class Utils.store
 ---@field store_table fun(data: table, store_name: string): string? Write table to JSON store
 ---@field fetch_versions fun(store_name:string,fetch_fn:AssetBundleFetchFn):string[]
+---@field fetch_release_dates fun(store_name:string,fetch_fn:AssetBundleFetchFn):table<string,string>
 ---@field fetch_toolchain_asset fun(store_name:string, fetch_fn:AssetBundleFetchFn, version:string):ToolchainBundle?
 Utils.store = {}
 

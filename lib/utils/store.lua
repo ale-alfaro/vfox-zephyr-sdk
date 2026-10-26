@@ -1,6 +1,6 @@
 local M = {
-    ---@type table<Version,table>
-    cache = {},
+    ---@type table<Version, table>
+    cache = {}
 }
 
 local cache_ttl = 12 * 60 * 60 -- 12 hours in seconds
@@ -35,7 +35,7 @@ local function write_file(path, content)
     f:close()
 end
 
----@param data table
+---@param data       table
 ---@param store_name string
 ---@return string?
 function M.store_table(data, store_name)
@@ -54,8 +54,8 @@ function M.store_table(data, store_name)
 end
 
 ---@param store_name string
----@param fetch_fn AssetBundleFetchFn
----@return table<Version,ToolchainBundle[]>?
+---@param fetch_fn   AssetBundleFetchFn
+---@return table<Version, ToolchainBundle>?
 local function read_store(store_name, fetch_fn)
     Utils.validate("store_name", store_name, "string")
     Utils.validate("fetch_releases_fn", fetch_fn, "function")
@@ -84,7 +84,7 @@ local function read_store(store_name, fetch_fn)
     return store
 end
 ---@param store_name string
----@param fetch_fn AssetBundleFetchFn
+---@param fetch_fn   AssetBundleFetchFn
 ---@return Version[]
 function M.fetch_versions(store_name, fetch_fn)
     local assets = read_store(store_name, fetch_fn)
@@ -94,8 +94,19 @@ function M.fetch_versions(store_name, fetch_fn)
 end
 
 ---@param store_name string
----@param fetch_fn AssetBundleFetchFn
----@param version string
+---@param fetch_fn   AssetBundleFetchFn
+---@return table<Version, string> dates
+function M.fetch_release_dates(store_name, fetch_fn)
+    local dates = {}
+    for version, bundle in pairs(read_store(store_name, fetch_fn) or {}) do
+        dates[version] = bundle.created_at
+    end
+    return dates
+end
+
+---@param store_name string
+---@param fetch_fn   AssetBundleFetchFn
+---@param version    string
 ---@return ToolchainBundle?
 function M.fetch_toolchain_asset(store_name, fetch_fn, version)
     local assets = read_store(store_name, fetch_fn) or {}

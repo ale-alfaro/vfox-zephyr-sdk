@@ -25,8 +25,12 @@ end
 local M = {}
 
 ---@return string[] versions
-M.list_versions = function()
+M.list_versions = function ()
     return { "1.5.0" } --- only supporting newest west version
+end
+
+M.release_dates = function ()
+    return Utils.source_dates(M.list_versions(), "lib/west.lua")
 end
 --- Generates and installs the west shim script into the mise install path.
 --- Uses `uv add --script -r requirements.in` to resolve and inline all
@@ -38,49 +42,46 @@ function M.install(ctx)
     local plugin_west = Utils.fs.join_path(RUNTIME.pluginDirPath, "bin", "west")
     local requirements = {
         Utils.fs.join_path(RUNTIME.pluginDirPath, "scripts", "requirements.in"),
-        unpack(Utils.ensure_list(opts.additional_requirements or {})),
+        unpack(Utils.ensure_list(opts.additional_requirements or {}))
     }
     local cmd = require("cmd")
     if not Utils.fs.exists(plugin_west) then
-        local requirement_flags = Utils.strings.join(
-            Utils.list_filter(function(req)
+        local requirement_flags = Utils.strings.join(Utils.list_filter(function (req)
                 if not Utils.fs.exists(req) then
                     Utils.wrn("Could'nt find requirement ", { req = req })
                     return false
                 end
                 return true
-            end, requirements),
-            " -r "
-        )
+            end, requirements), " -r ")
 
         cmd.exec(Utils.strings.join({
-            "uv",
-            "init",
-            "--script",
-            plugin_west,
-            "--python",
-            PYTHON_VERSION,
-        }, " "))
+                "uv",
+                "init",
+                "--script",
+                plugin_west,
+                "--python",
+                PYTHON_VERSION
+            }, " "))
         -- Let uv resolve deps from requirements.in and write them into the inline metadata
         cmd.exec(Utils.strings.join({
-            "uv",
-            "add",
-            "--script",
-            plugin_west,
-            requirement_flags,
-        }, " "))
+                "uv",
+                "add",
+                "--script",
+                plugin_west,
+                requirement_flags
+            }, " "))
         edit_west_script(plugin_west)
         cmd.exec(Utils.strings.join({
-            "uv",
-            "lock",
-            "--script",
-            plugin_west,
-        }, " "))
+                "uv",
+                "lock",
+                "--script",
+                plugin_west
+            }, " "))
         cmd.exec(Utils.strings.join({
-            "chmod",
-            "+x",
-            plugin_west,
-        }, " "))
+                "chmod",
+                "+x",
+                plugin_west
+            }, " "))
         Utils.inf("Created new plugin west shim based on requiements", { plugin_west = plugin_west })
     end
     local installation_west = Utils.fs.join_path(install_path, "west")
@@ -95,9 +96,7 @@ end
 function M.envs(ctx) -- luacheck: no unused args
     local install_path = ctx.install_path
 
-    local env_vars = {
-        { key = "PATH", value = install_path },
-    }
+    local env_vars = { { key = "PATH", value = install_path } }
     -- The shim runs via `uv run --script` (PEP 723), so uv must be on PATH at
     -- runtime. mise's `depends` (metadata.lua) only provides uv to the install
     -- hook, not at exec time, so resolve the mise-managed uv here and expose it.

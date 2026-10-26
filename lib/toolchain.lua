@@ -1,7 +1,7 @@
 ---@class ZephyrTool
 local M = {}
 
----@class M.toolchains : table<string, string>
+---@class M.toolchains: table<string, string>
 
 local GITHUB_REPO = "zephyrproject-rtos/sdk-ng"
 local MIN_VERSION = "0.17.0"
@@ -15,14 +15,16 @@ local STORE_KEY = "zephyr_minimal_toolchains"
 
 --- Fetch available SDK release versions from GitHub.
 --- Filters out pre-releases, drafts, and versions below MIN_VERSION.
-local github_fetch_releases = function() ---@as AssetBundleFetchFn
+local github_fetch_releases = function ()
+    ---@as AssetBundleFetchFn
     local request = Utils.net.gh_api(GITHUB_REPO, "releases", { reqType = "GET" })
 
-    local bundles = Utils.net.get_json_payload(request, function(bundle) ---@as ToolchainBundle[]?
+    local bundles = Utils.net.get_json_payload(request, function (bundle)
+        ---@as ToolchainBundle[]?
         if bundle["tag_name"] then
             return Utils.semver.check_version(bundle.tag_name, {
                 version = { min = MIN_VERSION },
-                prerelease = false,
+                prerelease = false
             })
         end
         return false
@@ -35,8 +37,8 @@ local github_fetch_releases = function() ---@as AssetBundleFetchFn
     local asset_pattern = Utils.platform_create_string("_{os}-{arch}_minimal{ext}", {
         exttype = "archive",
         override = {
-            ["{ext}"] = ext,
-        },
+            ["{ext}"] = ext
+        }
     })
     for _, release in ipairs(bundles) do
         local version = release.tag_name:gsub("^v", "")
@@ -48,6 +50,7 @@ local github_fetch_releases = function() ---@as AssetBundleFetchFn
                     version = version,
                     download_url = asset.browser_download_url or asset.url,
                     checksum = asset.digest,
+                    created_at = release.published_at
                 }
             end
         end
@@ -60,21 +63,26 @@ end
 --- filters the shared release list down to the versions that ship it.
 ---@param ctx BackendListVersionsCtx
 ---@return string[] versions
-M.list_versions = function(ctx)
+M.list_versions = function (ctx)
     Utils.validate_ctx(ctx, "list-versions")
     local opts = ctx.options or {} ---@as ZephyrSdkToolOptions
     local versions = Utils.store.fetch_versions(STORE_KEY, github_fetch_releases)
     if opts and opts.target == "llvm" then
-        versions = Utils.list_filter(function(version)
+        versions = Utils.list_filter(function (version)
             return Utils.semver.compare(version, LLVM_MIN_VERSION) >= 0
         end, versions)
     end
     return versions
 end
+
+M.release_dates = function ()
+    return Utils.store.fetch_release_dates(STORE_KEY, github_fetch_releases)
+end
+
 --- SDK >= 1.0.0 nests the GNU toolchains under `gnu/`.
 ---@param install_path string
----@param version string
----@param target string
+---@param version      string
+---@param target       string
 ---@return string
 local function gnu_bin(install_path, version, target)
     local root = Utils.semver.compare(version, "1.0.0") >= 0 and Utils.fs.join_path(install_path, "gnu") or install_path
@@ -102,10 +110,7 @@ function M.install(ctx)
     Utils.inf("Downloading minimal-zephyr-sdk", { asset = asset })
     version = version:gsub("^v", "")
     Utils.net.archived_asset_download(
-        asset.download_url,
-        install_path,
-        download_path,
-        { name = "zephyr-sdk-" .. version, strip_components = 1 }
+        asset.download_url, install_path, download_path, { name = "zephyr-sdk-" .. version, strip_components = 1 }
     )
     local setup_sh = Utils.fs.join_path(install_path, "setup.sh")
     if not Utils.fs.path_exists(setup_sh, { type = "file" }) then
@@ -149,8 +154,7 @@ function M.envs(ctx) -- luacheck: no unused args
         variant = Utils.fs.join_path("zephyr", (opts.family == "llvm") and "llvm" or "gnu")
     end
     local env_vars = {
-        { key = "ZEPHYR_TOOLCHAIN_VARIANT", value = variant },
-        { key = "ZEPHYR_SDK_INSTALL_DIR", value = install_dir },
+        { key = "ZEPHYR_TOOLCHAIN_VARIANT", value = variant }, { key = "ZEPHYR_SDK_INSTALL_DIR", value = install_dir }
     }
     -- The PATH is excluded for avoiding conflicts with host tools with the same name (clang)
     if opts.family ~= "llvm" then

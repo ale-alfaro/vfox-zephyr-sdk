@@ -68,7 +68,7 @@ ARCH_TYPE = ""
 ---@field options? table<string, any> Tool options from the current config
 
 ---@class BackendListVersionsResult
----@field versions string[] List of available versions
+---@field versions (string|{version:string, created_at?:string})[] List of available versions
 
 ---@class BackendInstallCtx
 ---@field tool string Tool name
