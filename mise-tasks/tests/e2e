@@ -33,13 +33,20 @@ else
     mise use uv cmake
 fi
 
-# Each tool: versions list, install, and its main binary runs.
-declare -A bin=([west]=west [arm]=arm-zephyr-eabi-gcc [gnuarmemb]=arm-none-eabi-gcc ["gdb-py"]=arm-zephyr-eabi-gdb-py)
+# Each tool: versions list, install, and its main binary runs. No associative arrays: macOS runners have bash 3.2.
+bin() { # <tool>
+    case $1 in
+        west) echo west ;;
+        arm) echo arm-zephyr-eabi-gcc ;;
+        gnuarmemb) echo arm-none-eabi-gcc ;;
+        gdb-py) echo arm-zephyr-eabi-gdb-py ;;
+    esac
+}
 check() { # <tool@version> [tool-option]
     local tool=${1%%@*}
     mise ls-remote "$plug:$tool"
     mise use ${2:+--tool-option "$2"} "$plug:$1"
-    mise x -- "${bin[$tool]}" --version
+    mise x -- "$(bin "$tool")" --version
 }
 check west@latest
 check "$toolchain" ${usage_llvm:+llvm=true}
