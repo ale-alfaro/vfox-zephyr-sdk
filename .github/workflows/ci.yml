@@ -16,10 +16,34 @@ jobs:
         llvm: [""]
         os: [ubuntu-latest, macos-latest]
         include:
-          - { toolchain-family: arm, version: latest, zephyr: v4.4.0, llvm: --llvm, os: ubuntu-latest }
-          - { toolchain-family: arm, version: latest, zephyr: v4.4.0, llvm: --llvm, os: macos-latest }
-          - { toolchain-family: arm, version: 0.17.0, zephyr: v3.7.0, llvm: "", os: ubuntu-latest }
-          - { toolchain-family: arm, version: 0.17.0, zephyr: v3.7.0, llvm: "", os: macos-latest }
+          - {
+              toolchain-family: arm,
+              version: latest,
+              zephyr: v4.4.0,
+              llvm: --llvm,
+              os: ubuntu-latest,
+            }
+          - {
+              toolchain-family: arm,
+              version: latest,
+              zephyr: v4.4.0,
+              llvm: --llvm,
+              os: macos-latest,
+            }
+          - {
+              toolchain-family: arm,
+              version: 0.17.0,
+              zephyr: v3.7.0,
+              llvm: "",
+              os: ubuntu-latest,
+            }
+          - {
+              toolchain-family: arm,
+              version: 0.17.0,
+              zephyr: v3.7.0,
+              llvm: "",
+              os: macos-latest,
+            }
     runs-on: ${{matrix.os}}
     env:
       MISE_ENV: ci
@@ -36,6 +60,9 @@ jobs:
           experimental: true
           bootstrap: true
           mise_toml: |
+            [bootstrap.directories."${{ github.workspace }}/.west"]
+            phase = "pre-packages"
+
             [bootstrap.files."${{ github.workspace }}/.west/config"]
             content = '''
             [manifest]
