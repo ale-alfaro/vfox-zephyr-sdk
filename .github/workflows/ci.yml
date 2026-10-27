@@ -10,12 +10,16 @@ jobs:
   test:
     strategy:
       matrix:
-        toolchain-family: [arm, llvm, gnuarmemb]
+        toolchain-family: [arm, gnuarmemb]
         version: [latest]
+        zephyr: [v4.4.0]
+        llvm: [""]
         os: [ubuntu-latest, macos-latest]
         include:
-          - version: 0.17.0
-            toolchain-family: arm
+          - { toolchain-family: arm, version: latest, zephyr: v4.4.0, llvm: --llvm, os: ubuntu-latest }
+          - { toolchain-family: arm, version: latest, zephyr: v4.4.0, llvm: --llvm, os: macos-latest }
+          - { toolchain-family: arm, version: 0.17.0, zephyr: v3.7.0, llvm: "", os: ubuntu-latest }
+          - { toolchain-family: arm, version: 0.17.0, zephyr: v3.7.0, llvm: "", os: macos-latest }
     runs-on: ${{matrix.os}}
     env:
       MISE_ENV: ci
@@ -43,9 +47,9 @@ jobs:
             base-prefer = configfile
 
             [build]
-            pristine = always 
+            pristine = always
             generator = Ninja
-            sysbuild = false 
+            sysbuild = false
             '''
 
             [bootstrap.files."${{ github.workspace }}/app/west.yml"]
@@ -72,11 +76,11 @@ jobs:
             "apt:device-tree-compiler" = "latest"
             "apt:gcc-multilib" = "latest"
             "apt:g++-multilib" = "latest"
-            "apt:bison"  = "latest"
-            "apt:flex"  = "latest"
-            "apt:libgmp-dev"  = "latest"
-            "apt:libmpfr-dev"  = "latest"
-            "apt:libexpat1-dev"  = "latest"
+            "apt:bison" = "latest"
+            "apt:flex" = "latest"
+            "apt:libgmp-dev" = "latest"
+            "apt:libmpfr-dev" = "latest"
+            "apt:libexpat1-dev" = "latest"
             "apt:libncurses-dev" = "latest"
 
             [tools]

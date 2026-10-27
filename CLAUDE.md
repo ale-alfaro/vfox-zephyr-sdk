@@ -48,7 +48,7 @@ Each hook dispatches to the appropriate tool module via `ZephyrSdk[tool_name]`.
 ### Tool registry with lazy loading
 
 `lib/zephyr_sdk.lua` is the central registry. It uses a metatable `__index` to lazy-load tool modules on first access. Alias mapping:
-- `"arm-zephyr-eabi"`, `"llvm"`, etc. -> `lib/toolchain.lua`
+- `"arm"`, `"aarch64"`, etc. -> `lib/toolchain.lua` (option `llvm = true` adds the SDK's LLVM to the same install)
 - `"west"` -> `lib/west.lua`
 - `"ncs"` -> `lib/ncs_toolchain.lua`
 

@@ -12,14 +12,14 @@ _G.ZephyrSdk = _G.ZephyrSdk or {}
 ---   * string  -> shorthand for `{ target = <string>, family = "zephyr" }`.
 ---
 --- The tool name doubles as the `ZEPHYR_TOOLCHAIN_VARIANT` mental model:
---- arch names (arm, aarch64, …) are the `zephyr` GNU variant, while `llvm` and
---- `gnuarmemb` are standalone, option-less variant tools of their own.
+--- arch names (arm, aarch64, …) are the `zephyr` GNU variant (with the SDK's LLVM
+--- added by the `llvm = true` option), while `gnuarmemb` is a standalone,
+--- option-less variant tool of its own.
 ---@class ZephyrSdk._tools: table<string, ZephyrTool>
 ZephyrSdk._tools = {
     west = true,
     gnuarmemb = true,
     ["gdb-py"] = true,
-    llvm = { name = "toolchain", options = { target = "llvm", family = "llvm" } },
     ["aarch64"] = { name = "toolchain", options = { target = "aarch64-zephyr-elf", family = "zephyr" } },
     ["arc64"] = { name = "toolchain", options = { target = "arc64-zephyr-elf", family = "zephyr" } },
     ["arc"] = { name = "toolchain", options = { target = "arc-zephyr-elf", family = "zephyr" } },
