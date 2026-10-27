@@ -59,6 +59,8 @@ jobs:
         with:
           experimental: true
           bootstrap: true
+          # The plugin's installs are the thing under test; a restored ~/.local/share/mise would skip them.
+          cache: false
           mise_toml: |
             [bootstrap.directories."${{ github.workspace }}/.west"]
             phase = "pre-packages"
@@ -115,13 +117,8 @@ jobs:
             cmake = "latest"
 
             [tasks.bootstrap]
+            # No --force: a pre-existing plugin means state leaked into the runner, which should fail loudly.
             run = "mise plugins link vfox-zephyr-sdk app"
-
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/west
-          key: ${{ runner.os }}-west-${{ hashFiles('app/mise.ci.toml') }}
 
       - name: Lua typecheck and linting
         working-directory: app
