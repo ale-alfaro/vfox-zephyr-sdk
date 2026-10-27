@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+#MISE description="Test the plugin: list/install/run west and the toolchain, build hello_world, and (arm on Linux) debug the ELF with gdb-py"
+#MISE env = { PLUGIN_NAME = { default = 'test-plugin' } }
+#USAGE arg "<toolchain>" help="Toolchain to test" { choices "arm@latest" "arm@0.17.0" "gnuarmemb@latest" }
+#USAGE flag "--llvm" help="Install the SDK's LLVM too (llvm=true) and build hello_world with it as well"
+set -euo pipefail
+plug=${PLUGIN_NAME?}
+toolchain=${usage_toolchain?}
+target=${toolchain%%@*}
+# west and gdb-py are dated by their recipe's last commit; a fresh merge must not hide @latest.
+export MISE_MINIMUM_RELEASE_AGE=0
+
+if [[ ${MISE_ENV:-} == ci ]]; then
+    # CI: mise bootstrap already linked the plugin and wrote the west workspace at the repo root.
+    cd "${GITHUB_WORKSPACE?}"
+else
+    # Local: everything mise touches, the west workspace included, lives under test_dir.
+    test_dir=$(mktemp -d)
+    trap 'rm -rf "$test_dir"' EXIT
+    export MISE_CONFIG_DIR=$test_dir/config MISE_SYSTEM_CONFIG_DIR=$test_dir/system MISE_GLOBAL_CONFIG_FILE=$test_dir/global.toml
+    export MISE_DATA_DIR=$test_dir/data MISE_CACHE_DIR=$test_dir/cache MISE_STATE_DIR=$test_dir/state
+    export MISE_ENV_CACHE=0 MISE_YES=1
+    unset MISE_ENV MISE_SAFE MISE_DISABLE_BACKENDS
+
+    [[ $toolchain == *@latest ]] && compat=v4.4 || compat=v3.7
+    ws=$test_dir/workspace
+    mkdir -p "$ws/app" "$ws/.west"
+    cp "$MISE_TASK_DIR/zephyr-$compat-manifest.yml" "$ws/app/west.yml"
+    cp "$MISE_TASK_DIR/.westconfig" "$ws/.west/config"
+    cd "$ws"
+
+    mise plugins link "$plug" "$MISE_CONFIG_ROOT"
+    mise use uv cmake
+fi
+
+# Each tool: versions list, install, and its main binary runs.
+declare -A bin=([west]=west [arm]=arm-zephyr-eabi-gcc [gnuarmemb]=arm-none-eabi-gcc ["gdb-py"]=arm-zephyr-eabi-gdb-py)
+check() { # <tool@version> [tool-option]
+    local tool=${1%%@*}
+    mise ls-remote "$plug:$tool"
+    mise use ${2:+--tool-option "$2"} "$plug:$1"
+    mise x -- "${bin[$tool]}" --version
+}
+check west@latest
+check "$toolchain" ${usage_llvm:+llvm=true}
+
+mise x -- west update -o=--depth=1 --narrow
+mise x -- west build -b reel_board zephyr/samples/hello_world
+# The SDK's clang is kept off PATH; a build selects it through the variant.
+if [[ ${usage_llvm:-} ]]; then
+    mise x -- west build -b reel_board zephyr/samples/hello_world -d build-llvm -- -DZEPHYR_TOOLCHAIN_VARIANT=zephyr/llvm
+fi
+
+# gdb-py builds from source on Linux only. With the arm SDK present, the standalone
+# binary must be the one on PATH (the SDK's copy is removed at install).
+if [[ $target == arm && $(uname -s) == Linux ]]; then
+    check gdb-py@latest
+    gdb=$(mise which arm-zephyr-eabi-gdb-py)
+    [[ $gdb == */$plug-gdb-py/* ]] || { echo "SDK gdb-py shadows the standalone one: $gdb"; exit 1; }
+    mise x -- arm-zephyr-eabi-gdb-py --batch -ex 'list main' build/zephyr/zephyr.elf
+fi

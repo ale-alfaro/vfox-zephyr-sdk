@@ -10,47 +10,92 @@ jobs:
   test:
     strategy:
       matrix:
-        zephyr-sdk-version: [0.17.0, latest]
-        os: [ubuntu-latest,macos-latest]
+        toolchain-family: [arm, llvm, gnuarmemb]
+        version: [latest]
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - version: 0.17.0
+            toolchain-family: arm
     runs-on: ${{matrix.os}}
     env:
       MISE_ENV: ci
       GITHUB_TOKEN: ${{ github.token }}
+      PLUGIN_NAME: vfox-zephyr-sdk
     steps:
-      - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v4
+      - uses: actions/checkout@v7
+        with:
+          path: app
+      # The workspace root becomes the west topdir; the plugin checkout in app/ doubles as the manifest repo.
+      - name: Bootstrap tools and runner
+        uses: jdx/mise-action@v5
         with:
           experimental: true
+          bootstrap: true
+          mise_toml: |
+            [bootstrap.files."${{ github.workspace }}/.west/config"]
+            content = '''
+            [manifest]
+            path = app
+            file = west.yml
+
+            [zephyr]
+            base = zephyr
+            base-prefer = configfile
+
+            [build]
+            pristine = always 
+            generator = Ninja
+            sysbuild = false 
+            '''
+
+            [bootstrap.files."${{ github.workspace }}/app/west.yml"]
+            content = '''
+            manifest:
+              remotes:
+                - name: zephyrproject-rtos
+                  url-base: https://github.com/zephyrproject-rtos
+              projects:
+                - name: zephyr
+                  remote: zephyrproject-rtos
+                  revision: ${{ matrix.zephyr }}
+                  clone-depth: 1
+                  import:
+                    name-allowlist:
+                      - cmsis
+                      - cmsis_6
+                      - hal_nordic
+              self:
+                path: app
+            '''
+
+            [bootstrap.packages]
+            "apt:device-tree-compiler" = "latest"
+            "apt:gcc-multilib" = "latest"
+            "apt:g++-multilib" = "latest"
+            "apt:bison"  = "latest"
+            "apt:flex"  = "latest"
+            "apt:libgmp-dev"  = "latest"
+            "apt:libmpfr-dev"  = "latest"
+            "apt:libexpat1-dev"  = "latest"
+            "apt:libncurses-dev" = "latest"
+
+            [tools]
+            uv = "latest"
+            cmake = "latest"
+
+            [tasks.bootstrap]
+            run = "mise plugins link vfox-zephyr-sdk app"
+
       - name: Cache
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/west
-            ~/.local/share/mise
-          key: ${{ runner.os }}-west-${{ hashFiles('mise.ci.toml') }}
-      - name: Install system dependencies (Linux)
-        if: runner.os == 'Linux'
-        run:
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh
-          gcc-multilib g++-multilib device-tree-compiler
+          path: ~/.cache/west
+          key: ${{ runner.os }}-west-${{ hashFiles('app/mise.ci.toml') }}
+
       - name: Lua typecheck and linting
+        working-directory: app
         run: mise run lint
-      - name: Test Zephyr-SDK toolchain for ARM
-        run: mise run --timeout 10m test_e2e:toolchain:version arm@${{matrix.zephyr-sdk-version}}
-      - name: Test LLVM toolchain variant
-        if: matrix.zephyr-sdk-version == 'latest'
-        run:
-          mise run --timeout 10m test_e2e:toolchain:version llvm@latest
-      - name: Test gnuarmemb toolchain variant
-        if: matrix.zephyr-sdk-version == 'latest'
-        run:
-          mise run --timeout 10m test_e2e:toolchain:version gnuarmemb@latest
-      - name: Install gdb-py build dependencies (Linux)
-        if: runner.os == 'Linux' && matrix.zephyr-sdk-version == 'latest'
-        run:
-          sudo apt-get install -y --no-install-recommends bison flex libgmp-dev
-          libmpfr-dev libexpat1-dev libncurses-dev
-      - name: Test gdb-py source build and relocation
-        if: runner.os == 'Linux' && matrix.zephyr-sdk-version == 'latest'
-        run:
-          mise run --timeout 30m test_e2e:gdb-py
+
+      - name: Test ${{ matrix.toolchain-family }}@${{ matrix.version }} ${{ matrix.llvm }}
+        working-directory: app
+        run: mise run --timeout 20m tests:e2e ${{ matrix.toolchain-family }}@${{ matrix.version }} ${{ matrix.llvm }}

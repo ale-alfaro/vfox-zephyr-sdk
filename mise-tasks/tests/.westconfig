@@ -1,0 +1,12 @@
+[manifest]
+path = app 
+file = west.yml
+
+[zephyr]
+base = zephyr
+base-prefer = configfile
+
+[build]
+pristine = always
+generator = Ninja
+sysbuild = false 
