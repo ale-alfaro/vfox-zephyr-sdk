@@ -1,0 +1,40 @@
+name: Release
+
+# A merged release PR (mise run release:new) lands a CHANGELOG.md + metadata.lua bump on main.
+# Tag that version and publish the GitHub release with the same git-cliff notes.
+on:
+  push:
+    branches: [main]
+    paths: [CHANGELOG.md]
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Read version from metadata.lua
+        id: meta
+        run: echo "version=$(yq --input-format=lua -oy '.PLUGIN.version' metadata.lua)" >> "$GITHUB_OUTPUT"
+      - name: Check for an existing tag
+        id: tag
+        run: |
+          if git rev-parse -q --verify "refs/tags/v${{ steps.meta.outputs.version }}" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Render release notes
+        if: steps.tag.outputs.exists != 'true'
+        uses: orhun/git-cliff-action@v4
+        with:
+          args: --unreleased --tag v${{ steps.meta.outputs.version }} --strip all
+        env:
+          OUTPUT: release-notes.md
+      - name: Tag and publish
+        if: steps.tag.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "v${{ steps.meta.outputs.version }}" --title "v${{ steps.meta.outputs.version }}" --notes-file release-notes.md
