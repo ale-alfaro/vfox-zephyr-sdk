@@ -4,6 +4,7 @@ MISE_USE_VERSIONS_HOST = "0"
 [tools]
 "cargo:emmylua_check" = "latest"
 "cargo:emmylua_formatter" = "latest"
+git-cliff = "latest"
 
 [tasks.lint]
 description = "Lint Lua sources"
